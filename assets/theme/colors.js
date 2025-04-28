@@ -7,6 +7,7 @@ const colors = {
     error: '#EF4444',
     success: '#10B981',
     gradientPrimary: ['#ff7979', '#ff9275'],
+    inputBackGroud: "#d9d9d9"
   };
   
   export default colors;

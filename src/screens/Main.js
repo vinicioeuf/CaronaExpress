@@ -29,7 +29,7 @@ export default function Main({navigation}) {
           </LinearGradient>
         </Pressable>
 
-        <Pressable style={styles.button2}>
+        <Pressable onPress={() => navigation.navigate('Login')} style={styles.button2}>
           <Text style={styles.buttonText}>Entrar</Text>
         </Pressable>
 
@@ -57,8 +57,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'center',
     padding: 20,
-    marginTop: 300,
-    gap: 15,
+    marginTop: 200,
+    gap: 7,
   },
   background: {
     flex: 1,
@@ -105,7 +105,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 20,
     width: 250,
-    marginTop: 30,
   },
   iconCircle: {
     width: 70,

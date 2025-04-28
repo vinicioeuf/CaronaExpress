@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
 import { auth } from '../firebase/firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { Text, StyleSheet, ImageBackground, View, Dimensions, Pressable, TextInput } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome } from 'react-native-vector-icons';
+import colors from '../../assets/theme/colors';
+import BackgroundImage from '../../assets/appBackground.jpg';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+
+const { width, height } = Dimensions.get('window');
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -20,58 +27,152 @@ export default function Register() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Cadastro de Usuário</Text>
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Digite seu e-mail"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+    <SafeAreaProvider>
+        <ImageBackground source={BackgroundImage} style={[styles.background, { width: width, height: height }]}>
+        <SafeAreaView style={styles.container}>
+            <View style={styles.viewLoginStyle}>
+                <Text style={{fontSize: 18, fontWeight: "bold"}}>Bem-vindo(a)!</Text>
+                <Text color={colors.mutedText}>Preencha os campos abaixo, para fazer o seu cadastro: </Text>
+                
+                <View style={styles.containerIconStyle}>
+                  <FontAwesome size={20} style={styles.iconStyle} name="user"/>
+                  <TextInput style={styles.inputStyle} placeholder='Nome'/>
+                </View>
+                
+                <View style={styles.containerIconStyle}>
+                  <FontAwesome size={20} style={styles.iconStyle} name="envelope"/>
+                  <TextInput style={styles.inputStyle} 
+                    placeholder='E-mail'  
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"/>
+                </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Digite sua senha"
-        value={senha}
-        onChangeText={setSenha}
-        secureTextEntry
-      />
+                <View style={styles.containerIconStyle}>
+                  <FontAwesome size={20} style={styles.iconStyle} name="lock"/>
+                  <TextInput 
+                  style={styles.inputStyle} 
+                  placeholder='Senha' 
+                  value={senha}
+                  onChangeText={setSenha}
+                  secureTextEntry/>
+                </View>
 
-      <Button title="Registrar" onPress={handleRegister} />
+                <View style={styles.containerIconStyle}>
+                  <FontAwesome size={20} style={styles.iconStyle} name="lock"/>
+                  <TextInput 
+                  style={styles.inputStyle} 
+                  placeholder='Confirmar senha'
+                  />
+                </View>
+            </View>
+            <View style={[{alignItems: "center", marginTop: 20}, styles.viewLoginStyle]}>
+                
+                <View>
+                  <Pressable onPress={handleRegister}>
+                      <LinearGradient colors={colors.gradientPrimary} style={styles.buttonStyle}>
+                          <Text style={{fontSize: 15}}>Continuar</Text>
+                      </LinearGradient>
+                  </Pressable>
+                </View>
 
-      
-      {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
-    </View>
+                <View style={{flex: 1, flexDirection:"row", gap: 5}}>
+                  <Text>Já tem uma conta?</Text>
+                  <Pressable style={{textDecorationLine: "underline"}}>Entrar</Pressable>
+                </View>
+                <View>
+                  <Text style={{ color: colors.mutedText}}>ou</Text>
+                </View>
+                
+                <View style={styles.iconsContainer}>
+                  {['google', 'apple', 'facebook'].map((iconName) => (
+                      <View style={styles.iconCircle} key={iconName}>
+                        <LinearGradient colors={colors.gradientPrimary} style={styles.iconCircleBackground}>
+                            <FontAwesome name={iconName} size={20} color="black" />
+                        </LinearGradient>
+                      </View>
+                  ))}
+                </View>
+
+                <View>
+                  <Text style={{ color: colors.mutedText }}>Entre de outra forma</Text>
+                </View>
+
+            </View>
+        </SafeAreaView>
+        </ImageBackground>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff'
+    marginTop: 200,
+    gap: 15,
   },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-    textAlign: 'center'
+  background: {
+    flex: 1,
+    resizeMode: 'cover',
   },
-  input: {
+  iconsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+    width: 250,
+  },
+  iconCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconCircleBackground: {
+    width: 50,
     height: 50,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    marginBottom: 15,
-    borderRadius: 5
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  feedback: {
-    marginTop: 20,
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#d9534f', 
-  }
+  viewLoginStyle: {
+    gap: 6, 
+  }, 
+  inputStyle: {
+    flex: 1,
+    height: 50,
+    padding: 8, 
+    backgroundColor: colors.inputBackGroud, 
+    color: colors.text, 
+    borderRadius: 8, 
+    textAlign: "left",
+    alignItems: "center",
+  }, 
+  buttonStyle: {
+    width: 200, 
+    height: 40, 
+    borderRadius: 8, 
+    flex: 1, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    padding: 8,
+  },
+  containerIconStyle: {
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    backgroundColor: colors.inputBackGroud,
+    borderRadius: 8, 
+    paddingHorizontal: 10, 
+    height: 50, 
+    marginVertical: 5
+  }, 
+  iconStyle: {
+    marginRight: 10, 
+  }, 
 });
