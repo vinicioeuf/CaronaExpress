@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { auth } from '../firebase/firebaseConfig';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { Text, StyleSheet, ImageBackground, View, Dimensions, Pressable, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from 'react-native-vector-icons';
@@ -11,18 +11,23 @@ import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 const { width, height } = Dimensions.get('window');
 
 export default function Register() {
+  const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [feedback, setFeedback] = useState(''); 
-
+  
   async function handleRegister() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
-      console.log("Usuário registrado:", userCredential.user.email);
-      setFeedback("Usuário registrado com sucesso!"); 
+      const user = userCredential.user;
+      await updateProfile(user, {
+        displayName: nome, 
+      });
+      console.log("Usuário registrado:", user.email, "Nome:", user.displayName);
+      setFeedback("Usuário registrado com sucesso!");
     } catch (error) {
       console.error("Erro ao registrar:", error);
-      setFeedback("Erro: " + error.message); 
+      setFeedback("Erro: " + error.message);
     }
   }
 
@@ -36,7 +41,7 @@ export default function Register() {
                 
                 <View style={styles.containerIconStyle}>
                   <FontAwesome size={20} style={styles.iconStyle} name="user"/>
-                  <TextInput style={styles.inputStyle} placeholder='Nome'/>
+                  <TextInput style={styles.inputStyle} onChangeText={setNome} value={nome} placeholder='Nome'/>
                 </View>
                 
                 <View style={styles.containerIconStyle}>
@@ -79,7 +84,10 @@ export default function Register() {
 
                 <View style={{flex: 1, flexDirection:"row", gap: 5}}>
                   <Text>Já tem uma conta?</Text>
-                  <Pressable style={{textDecorationLine: "underline"}}>Entrar</Pressable>
+                  <Pressable onPress={() => navigation.navigate('Login')}>
+  <Text style={{textDecorationLine: "underline"}}>Entrar</Text>
+</Pressable>
+
                 </View>
                 <View>
                   <Text style={{ color: colors.mutedText}}>ou</Text>

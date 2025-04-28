@@ -1,15 +1,38 @@
-import React from 'react'; 
+import React, { useState } from 'react'; 
 import { Text, StyleSheet, ImageBackground, View, Dimensions, Pressable, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from 'react-native-vector-icons';
 import colors from '../../assets/theme/colors';
 import BackgroundImage from '../../assets/appBackground.jpg';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebase/firebaseConfig'; // Ajuste o caminho se necessário
+import { Alert } from 'react-native';
+
+
 
 const { width, height } = Dimensions.get('window');
 
+
 export default function Login({navigation}) {
 
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+
+
+  async function handleLogin() {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+      const user = userCredential.user;
+      console.log('Login feito!', user.email);
+      Alert.alert('Sucesso', 'Login realizado com sucesso!');
+      navigation.navigate('Home');
+    } catch (error) {
+      console.error('Erro no login:', error);
+      Alert.alert('Erro', error.message);
+    }
+  }
+  
     return (
         <SafeAreaProvider>
             <ImageBackground source={BackgroundImage} style={[styles.background, { width: width, height: height }]}>
@@ -22,6 +45,8 @@ export default function Login({navigation}) {
                         <FontAwesome size={20} style={styles.iconStyle} name="envelope"/>
                         <TextInput style={styles.inputStyle} 
                         placeholder='E-mail'  
+                        onChangeText={setEmail}
+                        value={email}
                         />
                     </View>
                     
@@ -29,7 +54,9 @@ export default function Login({navigation}) {
                         <FontAwesome size={20} style={styles.iconStyle} name="lock"/>
                         <TextInput 
                         style={styles.inputStyle} 
-                        placeholder='Senha' 
+                        placeholder='Senha'
+                        onChangeText={setSenha}
+                        value={senha}
                         />
                     </View>
 
@@ -40,7 +67,7 @@ export default function Login({navigation}) {
                 <View style={[{alignItems: "center"}, styles.viewLoginStyle]}>
                     
                     <View> 
-                        <Pressable>
+                        <Pressable onPress={handleLogin}>
                             <LinearGradient colors={colors.gradientPrimary} style={styles.buttonStyle}>
                                 <Text style={{fontSize: 15}}>Continuar</Text>
                             </LinearGradient>
@@ -49,7 +76,7 @@ export default function Login({navigation}) {
 
                     <View style={{flex: 1, flexDirection:"row", gap: 5}}>
                         <Text>Nunca veio aqui?</Text>
-                        <Pressable style={{textDecorationLine: "underline"}}>Cadastre-se</Pressable>
+                        <Pressable style={{textDecorationLine: "underline"} } onPress={() => navigation.navigate('Register')}>Cadastre-se</Pressable>
                     </View>
 
                 <View>
