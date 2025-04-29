@@ -75,7 +75,7 @@ export default function Login({navigation}) {
                         </Pressable>
                     </View>
 
-                    <Pressable>
+                    <Pressable onPress={()=> navigation.navigate("PasswordRecovery")}>
                         <Text style={{textAlign: "right", textDecorationLine: "underline"}}>Esqueceu sua senha?</Text>
                     </Pressable>
                 </View>
