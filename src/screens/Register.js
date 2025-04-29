@@ -7,6 +7,7 @@ import { FontAwesome } from 'react-native-vector-icons';
 import colors from '../../assets/theme/colors';
 import BackgroundImage from '../../assets/appBackground.jpg';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import { Ionicons } from "@expo/vector-icons"
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,6 +16,8 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [feedback, setFeedback] = useState(''); 
+  const [animacaoOlho, setAnimacaoOlho] = useState("eye-off")
+  const [senhaVizivel, setSenhaVizivel] = useState(true)
   
   async function handleRegister() {
     try {
@@ -29,6 +32,14 @@ export default function Register() {
       console.error("Erro ao registrar:", error);
       setFeedback("Erro: " + error.message);
     }
+  }
+
+  function vizibilidade(){
+
+    const novoEstado = !senhaVizivel
+    setSenhaVizivel(novoEstado)
+    setAnimacaoOlho(novoEstado ? "eye-off" : "eye")
+     
   }
 
   return (
@@ -46,6 +57,7 @@ export default function Register() {
                 
                 <View style={styles.containerIconStyle}>
                   <FontAwesome size={20} style={styles.iconStyle} name="envelope"/>
+
                   <TextInput style={styles.inputStyle} 
                     placeholder='E-mail'  
                     value={email}
@@ -61,7 +73,12 @@ export default function Register() {
                   placeholder='Senha' 
                   value={senha}
                   onChangeText={setSenha}
-                  secureTextEntry/>
+                  secureTextEntry={senhaVizivel}/>
+
+                  <Pressable onPress={vizibilidade}>
+                    <Ionicons name={animacaoOlho} size={20}/>
+                  </Pressable>
+
                 </View>
 
                 <View style={styles.containerIconStyle}>
@@ -69,7 +86,12 @@ export default function Register() {
                   <TextInput 
                   style={styles.inputStyle} 
                   placeholder='Confirmar senha'
+                  secureTextEntry={senhaVizivel}
                   />
+
+                  <Pressable onPress={vizibilidade}>
+                    <Ionicons name={animacaoOlho} size={20}/>
+                  </Pressable>
                 </View>
             </View>
             <View style={[{alignItems: "center", marginTop: 20}, styles.viewLoginStyle]}>

@@ -8,7 +8,7 @@ import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig'; // Ajuste o caminho se necessário
 import { Alert } from 'react-native';
-
+import { Ionicons } from "@expo/vector-icons"
 
 
 const { width, height } = Dimensions.get('window');
@@ -18,6 +18,8 @@ export default function Login({navigation}) {
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [animacaoOlho, setAnimacaoOlho] = useState("eye-off")
+  const [senhaVizivel, setSenhaVizivel] = useState(true)
 
 
   async function handleLogin() {
@@ -31,6 +33,14 @@ export default function Login({navigation}) {
       console.error('Erro no login:', error);
       Alert.alert('Erro', error.message);
     }
+  }
+
+  function vizibilidade(){
+
+    const novoEstado = !senhaVizivel
+    setSenhaVizivel(novoEstado)
+    setAnimacaoOlho(novoEstado ? "eye-off" : "eye")
+     
   }
   
     return (
@@ -57,7 +67,12 @@ export default function Login({navigation}) {
                         placeholder='Senha'
                         onChangeText={setSenha}
                         value={senha}
+                        secureTextEntry={senhaVizivel}
                         />
+
+                        <Pressable onPress={vizibilidade}>
+                          <Ionicons name={animacaoOlho} size={20}/>
+                        </Pressable>
                     </View>
 
                     <Pressable>
