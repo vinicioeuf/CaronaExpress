@@ -1,11 +1,11 @@
 import React, { useState } from 'react'; 
-import { Text, StyleSheet, ImageBackground, View, Dimensions, Pressable, TextInput } from 'react-native';
+import { Text, StyleSheet, ImageBackground, View, Dimensions, Pressable, TextInput, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from 'react-native-vector-icons';
 import colors from '../../assets/theme/colors';
 import BackgroundImage from '../../assets/appBackground.jpg';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig'; // Ajuste o caminho se necessário
 import { Alert } from 'react-native';
 import { Ionicons } from "@expo/vector-icons"
@@ -33,6 +33,18 @@ export default function Login({navigation}) {
       console.error('Erro no login:', error);
       Alert.alert('Erro', error.message);
     }
+  }
+  function handleGoogleLogin(){
+
+    const provider = new GoogleAuthProvider();
+
+    signInWithPopup(auth, provider)
+    .then((result) => {
+      console.log(result);
+    })
+    .catch((error) => {
+      console.log(error)
+    })
   }
 
   function vizibilidade(){
@@ -98,15 +110,25 @@ export default function Login({navigation}) {
                         <Text style={{ color: colors.mutedText}}>ou</Text>
                 </View>
 
-                    <View style={styles.iconsContainer}>
-                        {['google', 'apple', 'facebook'].map((iconName) => (
-                            <View style={styles.iconCircle} key={iconName}>
-                                <LinearGradient colors={colors.gradientPrimary} style={styles.iconCircleBackground}>
-                                    <FontAwesome name={iconName} size={20} color="black" />
-                                </LinearGradient>
-                            </View>
-                        ))}
-                    </View>
+                <View style={styles.iconsContainer}>
+                  {['google', 'apple', 'facebook'].map((iconName) => {
+                    const isGoogle = iconName === 'google';
+                    const Wrapper = isGoogle ? TouchableOpacity : View;
+                    const wrapperProps = isGoogle ? { onPress: handleGoogleLogin } : {};
+
+                    return (
+                      <Wrapper
+                        style={styles.iconCircle}
+                        key={iconName}
+                        {...wrapperProps}
+                      >
+                        <LinearGradient colors={colors.gradientPrimary} style={styles.iconCircleBackground}>
+                          <FontAwesome name={iconName} size={20} color="black" />
+                        </LinearGradient>
+                      </Wrapper>
+                    );
+                  })}
+                </View>
 
                     <View>
                         <Text style={{ color: colors.mutedText }}>Entre de outra forma</Text>
