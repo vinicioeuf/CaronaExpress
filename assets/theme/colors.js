@@ -1,12 +1,13 @@
 const colors = {
-    primary: '#ff7979',
-    secondary: '#ff9275',
+    primary: '#4b78b4',
+    secondary: '#2c00ff',
     background: '#FFFFFF',
-    text: '#000000',
+    text: '#ffffff',
+    text2: '#000000',
     mutedText: '#545454',
     error: '#EF4444',
     success: '#10B981',
-    gradientPrimary: ['#ff7979', '#ff9275'],
+    gradientPrimary: ['#4b78b4', '#2c00ff'],
     inputBackGroud: "#d9d9d9"
   };
   

@@ -24,10 +24,10 @@ export default function Login({navigation}) {
 
   async function handleLogin() {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-      const user = userCredential.user;
-      console.log('Login feito!', user.email);
-      Alert.alert('Sucesso', 'Login realizado com sucesso!');
+      // const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+      // const user = userCredential.user;
+      // console.log('Login feito!', user.email);
+      // Alert.alert('Sucesso', 'Login realizado com sucesso!');
       navigation.navigate('Home');
     } catch (error) {
       console.error('Erro no login:', error);
@@ -96,7 +96,7 @@ export default function Login({navigation}) {
                     <View> 
                         <Pressable onPress={handleLogin}>
                             <LinearGradient colors={colors.gradientPrimary} style={styles.buttonStyle}>
-                                <Text style={{fontSize: 15}}>Continuar</Text>
+                                <Text style={[{fontSize: 15}, {color: colors.text}]}>Continuar</Text>
                             </LinearGradient>
                         </Pressable>
                     </View>
@@ -123,7 +123,7 @@ export default function Login({navigation}) {
                         {...wrapperProps}
                       >
                         <LinearGradient colors={colors.gradientPrimary} style={styles.iconCircleBackground}>
-                          <FontAwesome name={iconName} size={20} color="black" />
+                          <FontAwesome name={iconName} size={20} color="white" />
                         </LinearGradient>
                       </Wrapper>
                     );
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     height: 50,
     padding: 8, 
     backgroundColor: colors.inputBackGroud, 
-    color: colors.text, 
+    color: colors.text2, 
     borderRadius: 8, 
   }, 
   buttonStyle: {

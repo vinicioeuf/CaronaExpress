@@ -3,6 +3,8 @@ import Register from './screens/Register';
 import Main from './screens/Main';
 import Login from './screens/Login';
 import Home from './screens/Home';
+
+
 import {PasswordRecovery} from './screens/PasswordRecovery';
 
 
@@ -10,7 +12,7 @@ const Stack = createStackNavigator();
 
 function Routes(){
     return(
-        <Stack.Navigator initialRouteName="Main">
+        <Stack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>
             <Stack.Screen name="PasswordRecovery" component={PasswordRecovery} />
             <Stack.Screen name="Main" component={Main} />
             <Stack.Screen name="Register" component={Register} />

@@ -1,88 +1,262 @@
-import React from 'react'; 
-import { Text, StyleSheet, ImageBackground, View, Dimensions, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { FontAwesome } from 'react-native-vector-icons';
-import LottieView from 'lottie-react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Image, TextInput, Platform } from 'react-native';
+import Carona from './Carona';
+import Entrega from './Entrega';
+import Saldo from './Saldo';
+import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons'; 
 import colors from '../../assets/theme/colors';
-import BackgroundImage from '../../assets/appBackground.jpg';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const { width, height } = Dimensions.get('window');
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-export default function Home({navigation}) {
+
+export default function Home() {
+  const [activeTab, setActiveTab] = useState('Carona');
+
+  const renderScreen = () => {
+    if (activeTab === 'Carona') return <Carona />;
+    if (activeTab === 'Entrega') return <Entrega />;
+    if (activeTab === 'Saldo') return <Saldo />;
+
+  };
+
   return (
-    <ImageBackground source={BackgroundImage} style={[styles.background, { width: width, height: height }]}>
-      
-    </ImageBackground>
+    <SafeAreaView style={styles.container}>
+      {/* Cabeçalho fixo */}
+      <LinearGradient
+      colors={colors.gradientPrimary} // colors.gradientPrimary (substitua com o seu)
+      style={styles.header}
+    >
+      <View style={styles.topRow}>
+        <View style={styles.profileSection}>
+          <Image
+            source={{ uri: 'https://alexandracriollo.com/wp-content/uploads/2020/12/10-cosas-que-revela-tu-foto-de-perfil-2-1.jpg' }}
+            style={styles.avatar}
+          />
+          <View style={styles.textContainer}>
+            <Text style={styles.greeting}>Olá, Soya</Text>
+            <Text style={styles.welcome}>Para onde deseja ir hoje?</Text>
+          </View>
+        </View>
+
+        <View style={styles.iconRow}>
+          <View style={styles.iconBox}>
+            <Feather name="bell" size={20} color={colors.secondary} />
+          </View>
+          <View style={styles.iconBox}>
+            <MaterialIcons name="menu-open" size={24} color={colors.secondary} />
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.searchWrapper}>
+        <View style={styles.locationIcon}>
+          <Ionicons name="location-sharp" size={20} color="#ccc" />
+        </View>
+        <TextInput
+          placeholder="Buscar carona..."
+          placeholderTextColor="#ccc"
+          style={styles.searchInput}
+        />
+      </View>
+    </LinearGradient>
+
+      {/* Conteúdo da aba atual */}
+      <View style={styles.content}>
+        {renderScreen()}
+      </View>
+
+      {/* Bottom Navigation personalizado */}
+      <LinearGradient
+      colors={colors.gradientPrimary || ['#4c669f', '#3b5998']} // substitua pela sua definição
+      style={styles.tabBar}
+    >
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() => setActiveTab('Carona')}
+      >
+        <Icon
+          name="car" // ícone de carro
+          size={24}
+          color="white"
+          style={styles.icon}
+        />
+        <Text style={styles.tabText}>Corrida</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() => setActiveTab('Entrega')}
+      >
+        <Icon
+          name="package-variant-closed" // ícone de pacote
+          size={24}
+          color="white"
+          style={styles.icon}
+        />
+        <Text style={styles.tabText}>Entrega</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() => setActiveTab('Saldo')}
+      >
+        <Icon
+          name="currency-usd" // ícone de cifrão
+          size={24}
+          color="white"
+          style={styles.icon}
+        />
+        <Text style={styles.tabText}>Saldo</Text>
+      </TouchableOpacity>
+    </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    padding: 20,
-    marginTop: 200,
-    gap: 7,
+  container: { flex: 1 },
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
   },
-  background: {
-    flex: 1,
-    resizeMode: 'cover',
-  },
-  title: {
-    fontSize: 35,
-    textAlign: 'center',
-    color: colors.text,
-  },
-  button: {
-    width: 250,
-    height: 60,
-    padding: 15,
-    borderRadius: 10,
-    textAlign: 'center',
-  },
-  button2: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    width: 250,
-    height: 60,
-    padding: 15,
-    borderRadius: 10,
-    textAlign: 'center',
-  },
-  buttonText: {
-    fontSize: 20,
-    textAlign: 'center',
-  },
-  animationContainer: {
-    width: 200, 
-    height: 200, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-  },
-  animation: {
-    width: '100%', 
-    height: '100%', 
-  },
-  iconsContainer: {
+  topRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 20,
-    width: 250,
-  },
-  iconCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  iconCircleBackground: {
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
     width: 50,
     height: 50,
-    borderRadius: 35,
+    borderRadius: 8,
+    marginRight: 12,
+    borderWidth: 4,
+    borderColor: 'white'
+  },
+  textContainer: {
     justifyContent: 'center',
+  },
+  greeting: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  welcome: {
+    color: 'white',
+    fontSize: 14,
+  },
+
+  icon: {
+    marginLeft: 16,
+  },
+
+  iconBox: {
+    width: 40,
+    backgroundColor: 'white',
+    padding: 8,
+    borderRadius: 8,
+    marginLeft: 10,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  
+  searchWrapper: {
+    marginTop: 20,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    width: '60%'
+  },
+  locationIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    width: 200,
+    flex: 1,
+    color: '#333',
+  },header: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+  },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  textContainer: {
+    justifyContent: 'center',
+  },
+  greeting: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  welcome: {
+    color: 'white',
+    fontSize: 14,
+  },
+  iconRow: {
+    flexDirection: 'row',
+  },
+  icon: {
+    marginLeft: 16,
+  },
+  searchWrapper: {
+    marginTop: 20,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  locationIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#333',
+  },
+  content: { flex: 1 },
+  tabBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  tabButton: {
+    alignItems: 'center',
+  },
+  icon: {
+    marginBottom: 4,
+  },
+  tabText: {
+    color: 'white',
+    fontSize: 14,
+  },
 });
+

@@ -30,7 +30,7 @@ export default function Main({navigation}) {
         </Pressable>
 
         <Pressable onPress={() => navigation.navigate('Login')} style={styles.button2}>
-          <Text style={styles.buttonText}>Entrar</Text>
+        <Text style={[styles.buttonText, { color: colors.text2 }]}>Entrar</Text>
         </Pressable>
 
         <Text style={{ color: colors.mutedText }}>ou</Text>
@@ -39,7 +39,7 @@ export default function Main({navigation}) {
           {['google', 'apple', 'facebook'].map((iconName) => (
             <View style={styles.iconCircle} key={iconName}>
               <LinearGradient colors={colors.gradientPrimary} style={styles.iconCircleBackground}>
-                <FontAwesome name={iconName} size={20} color="black" />
+                <FontAwesome name={iconName} size={20} color = {colors.text} />
               </LinearGradient>
             </View>
           ))}
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 35,
     textAlign: 'center',
-    color: colors.text,
+    color: colors.text2,
   },
   button: {
     width: 250,
@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   buttonText: {
+    color: colors.text,
     fontSize: 20,
     textAlign: 'center',
   },

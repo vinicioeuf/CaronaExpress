@@ -99,7 +99,7 @@ export default function Register() {
                 <View>
                   <Pressable onPress={handleRegister}>
                       <LinearGradient colors={colors.gradientPrimary} style={styles.buttonStyle}>
-                          <Text style={{fontSize: 15}}>Continuar</Text>
+                          <Text style={[{fontSize: 15}, {color: colors.text}]}>Continuar</Text>
                       </LinearGradient>
                   </Pressable>
                 </View>
@@ -119,7 +119,7 @@ export default function Register() {
                   {['google', 'apple', 'facebook'].map((iconName) => (
                       <View style={styles.iconCircle} key={iconName}>
                         <LinearGradient colors={colors.gradientPrimary} style={styles.iconCircleBackground}>
-                            <FontAwesome name={iconName} size={20} color="black" />
+                            <FontAwesome name={iconName} size={20} color={colors.text} />
                         </LinearGradient>
                       </View>
                   ))}
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     height: 50,
     padding: 8, 
     backgroundColor: colors.inputBackGroud, 
-    color: colors.text, 
+    color: colors.text2, 
     borderRadius: 8, 
     textAlign: "left",
     alignItems: "center",
@@ -191,6 +191,7 @@ const styles = StyleSheet.create({
     justifyContent: "center", 
     alignItems: "center", 
     padding: 8,
+
   },
   containerIconStyle: {
     flexDirection: "row", 
