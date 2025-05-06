@@ -10,13 +10,13 @@ import { auth } from '../firebase/firebaseConfig'; // Ajuste o caminho se necess
 import { Alert } from 'react-native';
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { useNavigation } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
 
 export default function Login({navigation}) {
-
+  
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [animacaoOlho, setAnimacaoOlho] = useState("eye-off")
@@ -29,8 +29,14 @@ export default function Login({navigation}) {
       const user = userCredential.user;
       console.log('Login feito!', user.email);
       
-      await AsyncStorage.setItem('user', JSON.stringify(user)); 
-  
+      
+      await AsyncStorage.setItem('user', JSON.stringify({
+        name: user.displayName || 'Usuário', 
+        email: user.email,
+        uid: user.uid,
+        photoURL: user.photoURL
+      }));
+      
       Alert.alert('Sucesso', 'Login realizado com sucesso!');
       navigation.navigate('Home');
     } catch (error) {
@@ -39,17 +45,24 @@ export default function Login({navigation}) {
     }
   }
   
-  function handleGoogleLogin(){
-
+  async function handleGoogleLogin() {
     const provider = new GoogleAuthProvider();
 
-    signInWithPopup(auth, provider)
-    .then((result) => {
-      console.log(result);
-    })
-    .catch((error) => {
-      console.log(error)
-    })
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Armazena nome e foto
+      await AsyncStorage.setItem('user', JSON.stringify({
+        name: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+      }));
+
+      navigation.replace('Home'); // ou navigation.navigate('Home')
+    } catch (error) {
+      console.log('Erro no login com Google:', error);
+    }
   }
 
   function vizibilidade(){
