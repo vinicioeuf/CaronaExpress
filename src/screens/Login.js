@@ -9,6 +9,7 @@ import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from 
 import { auth } from '../firebase/firebaseConfig'; // Ajuste o caminho se necessário
 import { Alert } from 'react-native';
 import { Ionicons } from "@expo/vector-icons"
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const { width, height } = Dimensions.get('window');
@@ -24,16 +25,20 @@ export default function Login({navigation}) {
 
   async function handleLogin() {
     try {
-      // const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-      // const user = userCredential.user;
-      // console.log('Login feito!', user.email);
-      // Alert.alert('Sucesso', 'Login realizado com sucesso!');
+      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+      const user = userCredential.user;
+      console.log('Login feito!', user.email);
+      
+      await AsyncStorage.setItem('user', JSON.stringify(user)); 
+  
+      Alert.alert('Sucesso', 'Login realizado com sucesso!');
       navigation.navigate('Home');
     } catch (error) {
       console.error('Erro no login:', error);
       Alert.alert('Erro', error.message);
     }
   }
+  
   function handleGoogleLogin(){
 
     const provider = new GoogleAuthProvider();
