@@ -107,10 +107,10 @@ export default function Register() {
                 <View style={{flex: 1, flexDirection:"row", gap: 5}}>
                   <Text>Já tem uma conta?</Text>
                   <Pressable onPress={() => navigation.navigate('Login')}>
-  <Text style={{textDecorationLine: "underline"}}>Entrar</Text>
-</Pressable>
-
+                    <Text style={{textDecorationLine: "underline"}}>Entrar</Text>
+                  </Pressable>
                 </View>
+
                 <View>
                   <Text style={{ color: colors.mutedText}}>ou</Text>
                 </View>

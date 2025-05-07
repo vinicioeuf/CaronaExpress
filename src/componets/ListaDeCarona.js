@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import colors from "../../assets/theme/colors";
 
-export default function ListaDeDados({origen, destino, data, valor}) {
+export default function ListaDeCarona({origen, destino, data, valor}) {
 
     const[dadosViziveis, setDadosViziveis] = useState(true)
     const[animacaoOlho, setAnimacaoOlho] = useState("eye")
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     container: {
         backgroundColor: colors.inputBackGroud,
         padding: 14, 
-        width: "90%",
+        width: "100%",
         borderRadius: 8,
         flexDirection: "row",
         marginTop: 20,

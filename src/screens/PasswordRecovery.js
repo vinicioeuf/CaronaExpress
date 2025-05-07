@@ -1,4 +1,4 @@
-import { Text, TextInput, Pressable, View } from "react-native-web"
+import { Text, TextInput, Pressable, View } from "react-native"
 import { sendPasswordResetEmail } from "firebase/auth"
 import { auth } from "../firebase/firebaseConfig"
 import React, { useState } from "react"

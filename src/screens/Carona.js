@@ -2,10 +2,10 @@
 import React, {useState} from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Pressable, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-icons'; 
+import { MaterialCommunityIcons } from '@expo/vector-icons'; 
 import { LinearGradient } from 'expo-linear-gradient';
 import colors from '../../assets/theme/colors';
-import ListaDeDados from '../componets/ListaDeDados';
+import ListaDeCarona from '../componets/ListaDeCarona';
 
 export default function Carona() {
   const [filtroSelecionado, setFiltroSelecionado] = useState('Recente');
@@ -30,6 +30,7 @@ export default function Carona() {
   return (
     <SafeAreaView style={{flex: 1}}> 
       <ScrollView style={styles.container}>
+        
         <View style={styles.containerViewStyle}>
           <Text style={styles.text}>CaronaExpress ∙ Carona</Text>
           <TouchableOpacity>
@@ -39,32 +40,28 @@ export default function Carona() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-
-        <View style={styles.containerMinhasCorridas}>
           
-          <View>
-            <Text style={{color: "#737373", fontSize: 15, marginBottom: 10}}>Minhas Corridas: </Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{flexDirection: "row", paddingRight: 16}}>
-              {['Recente', '7 dias', '30 dias', 'Todo Período'].map((filtro) => (
-                <Pressable 
-                    key={filtro}
-                    style={[
-                      styles.backgroudBotaoStyle,
-                      filtroSelecionado === filtro && { backgroundColor: colors.secondary }
-                    ]}
-                    onPress={() => setFiltroSelecionado(filtro)}
-                    >
-                    <Text style={{ color: filtroSelecionado === filtro ? '#fff' : '#000' }}>
-                      {filtro}
-                    </Text>
-                  </Pressable>
-                ))}
-            </ScrollView>
-          </View>
-
+        <View>
+          <Text style={{color: "#737373", fontSize: 15, marginBottom: 10, marginTop: 20}}>Minhas Corridas: </Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{flexDirection: "row", paddingRight: 16}}>
+            {['Recente', '7 dias', '30 dias', 'Todo Período'].map((filtro) => (
+              <Pressable 
+                  key={filtro}
+                  style={[
+                    styles.backgroudBotaoStyle,
+                    filtroSelecionado === filtro && { backgroundColor: colors.secondary }
+                  ]}
+                  onPress={() => setFiltroSelecionado(filtro)}
+                  >
+                  <Text style={{ color: filtroSelecionado === filtro ? '#fff' : '#000' }}>
+                    {filtro}
+                  </Text>
+                </Pressable>
+              ))}
+          </ScrollView>
         </View>
 
         <View>
@@ -72,9 +69,12 @@ export default function Carona() {
           data={data}
           keyExtractor={((item) => item.id)}
           renderItem={({item}) => (
-            <ListaDeDados origen={item.origen} destino={item.destino} valor={item.valor} data={item.data}/>
-          )}
-          />
+            <ListaDeCarona 
+              origen={item.origen} 
+              destino={item.destino} 
+              valor={item.valor} 
+              data={item.data}/>
+          )}/>
         </View>
 
       </ScrollView>
