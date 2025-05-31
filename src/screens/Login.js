@@ -1,5 +1,5 @@
 import React, { useState } from 'react'; 
-import { Text, StyleSheet, ImageBackground, View, Dimensions, Pressable, TextInput, TouchableOpacity } from 'react-native';
+import { Text, StyleSheet, ImageBackground, View, Dimensions, Pressable, TextInput, TouchableOpacity, Modal} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from 'react-native-vector-icons';
 import colors from '../../assets/theme/colors';
@@ -11,6 +11,7 @@ import { Alert } from 'react-native';
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { PasswordRecovery } from './PasswordRecovery';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,6 +22,7 @@ export default function Login({navigation}) {
   const [senha, setSenha] = useState('');
   const [animacaoOlho, setAnimacaoOlho] = useState("eye-off")
   const [senhaVizivel, setSenhaVizivel] = useState(true)
+  const [abrirModal, setAbrirModal] = useState(false)
 
 
   async function handleLogin() {
@@ -105,9 +107,16 @@ export default function Login({navigation}) {
                         </Pressable>
                     </View>
 
-                    <Pressable onPress={()=> navigation.navigate("PasswordRecovery")}>
+                    <Pressable onPress={()=> setAbrirModal(true)}>
                         <Text style={{textAlign: "right", textDecorationLine: "underline"}}>Esqueceu sua senha?</Text>
                     </Pressable>
+                    <Modal
+                      animationType="fade" 
+                      visible={abrirModal} 
+                      transparent={true}
+                    >
+                        <PasswordRecovery fecharModal={()=> setAbrirModal(false)}/>
+                    </Modal>
                 </View>
                 <View style={[{alignItems: "center"}, styles.viewLoginStyle]}>
                     

@@ -135,6 +135,7 @@ export default function ListaDeEntrega({rua, numero, bairro, nome, telefone, ent
     )
 }
 
+// falta criar o botão para terminar o front dessa tela. 
 
 const styles = StyleSheet.create({
     container: {
