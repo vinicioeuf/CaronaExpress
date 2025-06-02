@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   containerViewStyle: {
     marginTop: 20,
     flexDirection: "row", 
-    justifyContent: "space-around", 
+    justifyContent: "space-between", 
     alignItems: "center",
     width: "100%", 
     height: "auto"

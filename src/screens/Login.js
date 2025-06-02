@@ -27,19 +27,19 @@ export default function Login({navigation}) {
 
   async function handleLogin() {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-      const user = userCredential.user;
-      console.log('Login feito!', user.email);
+      // const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+      // const user = userCredential.user;
+      // console.log('Login feito!', user.email);
       
       
-      await AsyncStorage.setItem('user', JSON.stringify({
-        name: user.displayName || 'Usuário', 
-        email: user.email,
-        uid: user.uid,
-        photoURL: user.photoURL
-      }));
+      // await AsyncStorage.setItem('user', JSON.stringify({
+      //   name: user.displayName || 'Usuário', 
+      //   email: user.email,
+      //   uid: user.uid,
+      //   photoURL: user.photoURL
+      // }));
       
-      Alert.alert('Sucesso', 'Login realizado com sucesso!');
+      // Alert.alert('Sucesso', 'Login realizado com sucesso!');
       navigation.navigate('Home');
     } catch (error) {
       console.error('Erro no login:', error);

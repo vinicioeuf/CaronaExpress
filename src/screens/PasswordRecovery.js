@@ -67,7 +67,7 @@ export function PasswordRecovery ({fecharModal}) {
                                 color: colors.text, 
                                 fontWeight: "bold", 
                                 fontSize: 12
-                            }}>Pecuperar Senha</Text>
+                            }}>Recuperar Senha</Text>
                         </LinearGradient>
                     </TouchableOpacity>
 
