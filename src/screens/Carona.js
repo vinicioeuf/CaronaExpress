@@ -6,6 +6,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import colors from '../../assets/theme/colors';
 import ListaDeCarona from '../componets/ListaDeCarona';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+
 
 export default function Carona() {
   const [filtroSelecionado, setFiltroSelecionado] = useState('Recente');
@@ -63,7 +65,16 @@ export default function Carona() {
               ))}
           </ScrollView>
         </View>
-
+        <GooglePlacesAutocomplete
+          placeholder='Search'
+          onPress={(data, details = null) => {
+            console.log(data, details);
+          }}
+          query={{
+            key: 'AIzaSyAPE5zJ7tXFbJU0FMTNxBPO8Ubh1E2Y0FE',
+            language: 'pt-br',
+          }}
+        />
         <View>
           <FlatList
           data={data}
