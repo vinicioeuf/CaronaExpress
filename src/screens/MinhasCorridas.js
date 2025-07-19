@@ -43,7 +43,6 @@ export default function MinhasCorridas() {
 
     setLoading(true);
 
-    // Listener para corridas como passageiro
     const qPassageiro = query(
       collection(db, 'corridas'),
       where('passageiros', 'array-contains', currentUserId)
@@ -61,7 +60,6 @@ export default function MinhasCorridas() {
       setLoading(false);
     });
 
-    // Listener para corridas como motorista
     const qMotorista = query(
       collection(db, 'corridas'),
       where('motorista', '==', currentUserId)
@@ -93,23 +91,34 @@ export default function MinhasCorridas() {
 
     return (
       <View style={styles.card}>
-        <Text style={styles.linha}>
-          <Feather name="map-pin" size={16} color="#4F46E5" /> {item.origem} → {item.destino}
+        <Text style={styles.cardTitle}>
+          <Feather name="map-pin" size={18} color="#6B46C1" /> {item.origem} → {item.destino}
         </Text>
         <View style={styles.infoRow}>
-          <Text style={styles.data}>⏰ {item.horario}</Text>
-          <Text style={styles.statusText}>Status: {item.status || 'N/A'}</Text>
+          <Text style={styles.detailText}>
+            <Feather name="clock" size={14} color="#4A5568" /> {item.horario}
+          </Text>
+          <Text style={styles.statusText}>
+            <Feather name="info" size={14} color="#007bff" /> Status: {item.status || 'N/A'}
+          </Text>
         </View>
-        <Text style={styles.detailText}><Text style={styles.label}>Veículo:</Text> {item.veiculo || 'N/A'}</Text>
         <Text style={styles.detailText}>
-          <Text style={styles.label}>Lugares:</Text> {passageirosAtuais}/{item.lugaresDisponiveis || 'N/A'} {estaLotada && <Text style={styles.lotadaText}>(Lotada)</Text>}
+          <Feather name="truck" size={14} color="#4A5568" /> Veículo: {item.veiculo || 'N/A'}
         </Text>
-        <Text style={styles.detailText}><Text style={styles.label}>Valor:</Text> R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}</Text>
+        <Text style={styles.detailText}>
+          <Feather name="users" size={14} color="#4A5568" /> Lugares: {passageirosAtuais}/{item.lugaresDisponiveis || 'N/A'}
+          {estaLotada && <Text style={styles.lotadaText}> (Lotada)</Text>}
+        </Text>
+        <Text style={styles.detailText}>
+          <Feather name="dollar-sign" size={14} color="#38A169" /> Valor: R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}
+        </Text>
 
         {/* Exibir passageiros apenas para a aba de motorista */}
         {abaSelecionada === 'Motorista' && item.passageiros && item.passageiros.length > 0 && (
           <View style={styles.passengersContainer}>
-            <Text style={styles.passengersTitle}>Passageiros:</Text>
+            <Text style={styles.passengersTitle}>
+              <Feather name="users" size={16} color="#4A5568" /> Passageiros:
+            </Text>
             {item.passageiros.map((passengerId, index) => (
               <Text key={index} style={styles.passengerItem}>- {passengerId}</Text>
             ))}
@@ -123,141 +132,146 @@ export default function MinhasCorridas() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.titulo}>Minhas Corridas</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Minhas Corridas</Text>
 
-      <View style={styles.abas}>
-        {['Passageiro', 'Motorista'].map((aba) => (
-          <Pressable
-            key={aba}
-            style={[
-              styles.abaBotao,
-              abaSelecionada === aba && styles.abaSelecionada,
-            ]}
-            onPress={() => setAbaSelecionada(aba)}
-          >
-            <Text
+        <View style={styles.tabs}>
+          {['Passageiro', 'Motorista'].map((aba) => (
+            <Pressable
+              key={aba}
               style={[
-                styles.abaTexto,
-                abaSelecionada === aba && styles.abaTextoSelecionado,
+                styles.tabButton,
+                abaSelecionada === aba && styles.tabSelected,
               ]}
+              onPress={() => setAbaSelecionada(aba)}
             >
-              Como {aba}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.loadingText}>Carregando corridas...</Text>
+              <Text
+                style={[
+                  styles.tabText,
+                  abaSelecionada === aba && styles.tabTextSelected,
+                ]}
+              >
+                Como {aba}
+              </Text>
+            </Pressable>
+          ))}
         </View>
-      ) : (
-        <FlatList
-          data={dados}
-          keyExtractor={(item) => item.id}
-          renderItem={renderCorrida}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          style={{ marginTop: 10 }}
-          ListEmptyComponent={() => (
-            <Text style={styles.noCorridasText}>
-              {abaSelecionada === 'Passageiro'
-                ? 'Você não aceitou nenhuma corrida ainda.'
-                : 'Você não ofereceu nenhuma corrida ainda.'}
-            </Text>
-          )}
-        />
-      )}
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6B46C1" />
+            <Text style={styles.loadingText}>Carregando corridas...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={dados}
+            keyExtractor={(item) => item.id}
+            renderItem={renderCorrida}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            style={{ marginTop: 10 }}
+            ListEmptyComponent={() => (
+              <Text style={styles.noCorridasText}>
+                {abaSelecionada === 'Passageiro'
+                  ? 'Você não aceitou nenhuma corrida ainda.'
+                  : 'Você não ofereceu nenhuma corrida ainda.'}
+              </Text>
+            )}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F7FAFC',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#F6F7FB',
-    padding: 20,
+    paddingHorizontal: 25,
+    paddingVertical: 20,
   },
-  titulo: {
-    fontSize: 22,
+  title: {
+    fontSize: 28,
     fontWeight: '700',
-    color: '#333',
-    marginBottom: 20,
+    color: '#2D3748',
+    marginBottom: 35,
+    textAlign: 'center',
   },
-  abas: {
+  tabs: {
     flexDirection: 'row',
-    marginBottom: 10,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 15,
+    marginBottom: 20,
+    overflow: 'hidden', // Garante que o borderRadius funcione
   },
-  abaBotao: {
+  tabButton: {
     flex: 1,
-    paddingVertical: 12,
-    backgroundColor: '#E5E7EB',
-    marginRight: 8,
-    borderRadius: 10,
+    paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  abaSelecionada: {
-    backgroundColor: '#4F46E5',
+  tabSelected: {
+    backgroundColor: '#6B46C1',
+    shadowColor: '#6B46C1',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  abaTexto: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+  tabText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#4A5568',
   },
-  abaTextoSelecionado: {
+  tabTextSelected: {
     color: '#fff',
   },
   card: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    elevation: 2,
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 15,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  linha: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#4B5563',
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginBottom: 10,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4, // Adicionado para espaçamento
+    marginBottom: 8,
   },
-  data: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  valor: {
-    fontSize: 14,
-    color: '#4F46E5',
-    fontWeight: '600',
+  detailText: {
+    fontSize: 15,
+    color: '#4A5568',
+    marginBottom: 5,
   },
   statusText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#007bff',
   },
-  detailText: { // Novo estilo para detalhes adicionais
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
   lotadaText: {
-    color: 'red',
+    color: '#E53E3E',
     fontWeight: 'bold',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 50,
   },
   loadingText: {
     marginTop: 10,
@@ -267,31 +281,32 @@ const styles = StyleSheet.create({
   noCorridasText: {
     fontSize: 16,
     fontStyle: 'italic',
-    color: '#999',
+    color: '#A0AEC0',
     textAlign: 'center',
-    marginTop: 20,
+    marginTop: 30,
   },
-  passengersContainer: { // Estilo para a lista de passageiros
-    marginTop: 10,
-    paddingTop: 8,
+  passengersContainer: {
+    marginTop: 15,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#E2E8F0',
   },
   passengersTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 5,
-    color: '#4B5563',
+    marginBottom: 8,
+    color: '#4A5568',
   },
   passengerItem: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#6B7280',
-    marginBottom: 2,
+    marginBottom: 4,
+    marginLeft: 5, // Pequeno recuo para os itens da lista
   },
   noPassengersText: {
-    fontSize: 13,
+    fontSize: 14,
     fontStyle: 'italic',
-    color: '#999',
-    marginTop: 5,
+    color: '#A0AEC0',
+    marginTop: 8,
   },
 });

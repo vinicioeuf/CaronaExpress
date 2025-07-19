@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,46 +8,60 @@ import {
   Alert,
   Platform,
   TextInput,
+  SafeAreaView,
+  ActivityIndicator, // Para indicar carregamento
 } from 'react-native';
 
-import { collection, getDocs, getFirestore, query, where, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, getFirestore, query, where, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { app, auth } from '../firebase/firebaseConfig';
+import { Feather } from '@expo/vector-icons';
 
 const db = getFirestore(app);
 
 export default function BuscarCorrida() {
   const [destinoFiltro, setDestinoFiltro] = useState('');
-  const [resultado, setResultado] = useState([]);
+  const [allCorridas, setAllCorridas] = useState([]); // Armazena todas as corridas ativas
+  const [filteredCorridas, setFilteredCorridas] = useState([]); // Armazena as corridas filtradas para exibição
+  const [loading, setLoading] = useState(true); // Estado de carregamento
 
-  async function handleBuscar() {
-    if (!destinoFiltro.trim()) {
-      Alert.alert('Erro', 'Por favor, informe o destino para buscar.');
-      return;
-    }
+  // useEffect para carregar todas as corridas ativas uma vez e manter o listener em tempo real
+  useEffect(() => {
+    setLoading(true);
+    const corridasRef = collection(db, 'corridas');
+    // Consulta para pegar todas as corridas com status 'Ativa'
+    const q = query(corridasRef, where('status', '==', 'Ativa'));
 
-    try {
-      const corridasRef = collection(db, 'corridas');
-      const q = query(corridasRef, where('destino', '==', destinoFiltro));
-      const snapshot = await getDocs(q);
-
-      const corridasEncontradas = snapshot.docs.map(doc => ({
+    // onSnapshot para escutar mudanças em tempo real
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedCorridas = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+      setAllCorridas(fetchedCorridas); // Atualiza a lista completa
+      setLoading(false); // Termina o carregamento
+    }, (error) => {
+      console.error("Erro ao carregar corridas:", error);
+      Alert.alert('Erro', 'Não foi possível carregar as corridas disponíveis.');
+      setLoading(false);
+    });
 
-      if (corridasEncontradas.length === 0) {
-        Alert.alert('Nenhuma corrida encontrada', 'Não há corridas disponíveis para este destino.');
-      }
+    // Retorna a função de unsubscribe para limpar o listener quando o componente for desmontado
+    return () => unsubscribe();
+  }, []); // Executa apenas uma vez ao montar o componente
 
-      setResultado(corridasEncontradas);
-
-    } catch (error) {
-      Alert.alert('Erro', 'Erro ao buscar corridas. Tente novamente.');
-      console.error('Erro ao buscar corridas:', error);
+  // useEffect para filtrar as corridas sempre que 'allCorridas' ou 'destinoFiltro' mudar
+  useEffect(() => {
+    if (destinoFiltro.trim() === '') {
+      setFilteredCorridas(allCorridas); // Se o filtro estiver vazio, mostra todas
+    } else {
+      const filtered = allCorridas.filter(corrida =>
+        corrida.destino.toLowerCase().includes(destinoFiltro.toLowerCase())
+      );
+      setFilteredCorridas(filtered); // Filtra e atualiza a lista exibida
     }
-  }
+  }, [destinoFiltro, allCorridas]); // Dependências: filtro e lista completa de corridas
 
-  async function handleAceitarCorrida(corrida) { // Recebe o objeto corrida completo
+  async function handleAceitarCorrida(corrida) {
     const user = auth.currentUser;
 
     if (!user) {
@@ -55,20 +69,17 @@ export default function BuscarCorrida() {
       return;
     }
 
-    // Verifica se a corrida já está lotada
     const passageirosAtuais = corrida.passageiros ? corrida.passageiros.length : 0;
     if (passageirosAtuais >= corrida.lugaresDisponiveis) {
       Alert.alert('Corrida Lotada', 'Desculpe, esta corrida não tem mais lugares disponíveis.');
       return;
     }
 
-    // Verifica se o usuário já é passageiro desta corrida
     if (corrida.passageiros && corrida.passageiros.includes(user.uid)) {
       Alert.alert('Atenção', 'Você já aceitou esta corrida.');
       return;
     }
 
-    // Verifica se o usuário é o motorista da corrida
     if (corrida.motorista === user.uid) {
       Alert.alert('Atenção', 'Você não pode aceitar sua própria corrida como passageiro.');
       return;
@@ -81,8 +92,8 @@ export default function BuscarCorrida() {
       });
 
       Alert.alert('Sucesso', 'Corrida aceita com sucesso! Você foi adicionado como passageiro.');
-      // Recarrega a lista para refletir a mudança (lugares disponíveis, botão desabilitado)
-      handleBuscar();
+      // Não precisamos chamar handleBuscar() aqui, pois o onSnapshot já vai atualizar 'allCorridas'
+      // e o useEffect de filtro vai reagir a essa mudança.
 
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível aceitar a corrida.');
@@ -96,20 +107,32 @@ export default function BuscarCorrida() {
 
     return (
       <View style={styles.corridaItem}>
-        <Text style={styles.corridaText}><Text style={styles.label}>Origem:</Text> {item.origem}</Text>
-        <Text style={styles.corridaText}><Text style={styles.label}>Destino:</Text> {item.destino}</Text>
-        <Text style={styles.corridaText}><Text style={styles.label}>Horário:</Text> {item.horario}</Text>
-        <Text style={styles.corridaText}><Text style={styles.label}>Veículo:</Text> {item.veiculo}</Text>
-        <Text style={styles.corridaText}>
-          <Text style={styles.label}>Lugares:</Text> {passageirosAtuais}/{item.lugaresDisponiveis} {estaLotada && <Text style={styles.lotadaText}>(Lotada)</Text>}
+        <Text style={styles.corridaTitle}>
+          <Feather name="map-pin" size={18} color="#6B46C1" /> {item.origem} → {item.destino}
         </Text>
-        <Text style={styles.corridaText}><Text style={styles.label}>Valor:</Text> R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}</Text>
+        <View style={styles.infoRow}>
+          <Text style={styles.detailText}>
+            <Feather name="clock" size={14} color="#4A5568" /> {item.horario}
+          </Text>
+          <Text style={styles.detailText}>
+            <Feather name="dollar-sign" size={14} color="#38A169" /> R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}
+          </Text>
+        </View>
+        <Text style={styles.detailText}>
+          <Feather name="truck" size={14} color="#4A5568" /> Veículo: {item.veiculo || 'N/A'}
+        </Text>
+        <Text style={styles.detailText}>
+          <Feather name="users" size={14} color="#4A5568" /> Lugares: {passageirosAtuais}/{item.lugaresDisponiveis || 'N/A'}
+          {estaLotada && <Text style={styles.lotadaText}> (Lotada)</Text>}
+        </Text>
+        <Text style={styles.statusText}>
+          <Feather name="info" size={14} color="#007bff" /> Status: {item.status || 'N/A'}
+        </Text>
 
-        {/* Botão Aceitar Corrida */}
         <TouchableOpacity
           style={[styles.acceptButton, estaLotada && styles.disabledButton]}
           onPress={() => handleAceitarCorrida(item)}
-          disabled={estaLotada} // Desabilita o botão se a corrida estiver lotada
+          disabled={estaLotada}
         >
           <Text style={styles.acceptButtonText}>
             {estaLotada ? 'Lotada' : 'Aceitar Corrida'}
@@ -120,121 +143,201 @@ export default function BuscarCorrida() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Buscar Corrida</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Buscar Corrida</Text>
 
-      <Text style={styles.label}>Destino</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Digite o destino"
-        value={destinoFiltro}
-        onChangeText={setDestinoFiltro}
-      />
+        <Text style={styles.label}>Destino</Text>
+        <View style={styles.inputContainer}>
+          <Feather name="search" size={20} color="#805AD5" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Digite o destino para buscar"
+            placeholderTextColor="#A0AEC0"
+            value={destinoFiltro}
+            onChangeText={setDestinoFiltro} // <--- Filtra em tempo real
+          />
+        </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleBuscar}>
-        <Text style={styles.buttonText}>Buscar</Text>
-      </TouchableOpacity>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6B46C1" />
+            <Text style={styles.loadingText}>Carregando corridas...</Text>
+          </View>
+        ) : (
+          <View style={styles.resultContainer}>
+            {filteredCorridas.length > 0 && destinoFiltro.trim() !== '' && <Text style={styles.resultTitle}>Corridas Encontradas:</Text>}
+            {destinoFiltro.trim() === '' && allCorridas.length > 0 && <Text style={styles.resultTitle}>Todas as Corridas Ativas:</Text>}
 
-      <View style={styles.resultContainer}>
-        {resultado.length > 0 && <Text style={styles.resultTitle}>Corridas Disponíveis:</Text>}
 
-        <FlatList
-          data={resultado}
-          keyExtractor={(item) => item.id}
-          renderItem={renderCorrida}
-          ListEmptyComponent={() => (
-            <Text style={styles.noResultText}>
-              {destinoFiltro.trim() && resultado.length === 0 ?
-                'Nenhuma corrida encontrada para o destino informado.' :
-                'Digite um destino e clique em "Buscar" para encontrar corridas.'}
-            </Text>
-          )}
-        />
+            <FlatList
+              data={filteredCorridas} // Usa a lista filtrada
+              keyExtractor={(item) => item.id}
+              renderItem={renderCorrida}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              ListEmptyComponent={() => (
+                <Text style={styles.noResultText}>
+                  {destinoFiltro.trim() === ''
+                    ? 'Nenhuma corrida ativa disponível no momento.'
+                    : `Nenhuma corrida encontrada para "${destinoFiltro}".`}
+                </Text>
+              )}
+            />
+          </View>
+        )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F7FAFC',
+  },
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: 25,
+    paddingVertical: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
-    marginBottom: 25,
-    color: '#333',
+    color: '#2D3748',
+    marginBottom: 35,
+    textAlign: 'center',
   },
   label: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#555',
+    color: '#4A5568',
+    marginBottom: 8,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  icon: {
+    marginRight: 10,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#bbb',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+    flex: 1,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
     fontSize: 16,
-    marginBottom: 20,
+    color: '#2D3748',
   },
-  button: {
-    backgroundColor: '#4B7BE5',
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginBottom: 20,
+  button: { // Removido do JSX, mas mantido aqui caso precise para outros fins
+    backgroundColor: '#6B46C1',
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginBottom: 25,
     alignItems: 'center',
+    shadowColor: '#6B46C1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  buttonText: {
+  buttonText: { // Removido do JSX
     color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   resultContainer: {
     flex: 1,
   },
   resultTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    marginBottom: 15,
-    color: '#222',
+    color: '#2D3748',
+    marginBottom: 20,
   },
   corridaItem: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  corridaText: {
-    fontSize: 16,
-    marginBottom: 4,
+  corridaTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginBottom: 10,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  detailText: {
+    fontSize: 15,
+    color: '#4A5568',
+    marginBottom: 5,
+  },
+  statusText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#007bff',
+    marginTop: 5,
+  },
+  lotadaText: {
+    color: '#E53E3E',
+    fontWeight: 'bold',
+  },
+  acceptButton: {
+    backgroundColor: '#38A169',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 15,
+    alignItems: 'center',
+    shadowColor: '#38A169',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  acceptButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  disabledButton: {
+    backgroundColor: '#CBD5E0',
+    shadowColor: 'transparent',
+    elevation: 0,
   },
   noResultText: {
     fontSize: 16,
     fontStyle: 'italic',
-    color: '#999',
+    color: '#A0AEC0',
+    textAlign: 'center',
+    marginTop: 30,
   },
-  acceptButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 10,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 50,
   },
-  acceptButtonText: {
-    color: '#fff',
+  loadingText: {
+    marginTop: 10,
     fontSize: 16,
-    fontWeight: '600',
-  },
-  disabledButton: {
-    backgroundColor: '#cccccc', // Cor para botão desabilitado
-  },
-  lotadaText: {
-    color: 'red',
-    fontWeight: 'bold',
+    color: '#555',
   },
 });
