@@ -9,7 +9,7 @@ import {
   Platform,
   TextInput,
   SafeAreaView,
-  ActivityIndicator, // Para indicar carregamento
+  ActivityIndicator,
 } from 'react-native';
 
 import { collection, getFirestore, query, where, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -18,48 +18,43 @@ import { Feather } from '@expo/vector-icons';
 
 const db = getFirestore(app);
 
-export default function BuscarCorrida() {
+export default function BuscarCorrida({ navigation }) { // Adicionado navigation prop
   const [destinoFiltro, setDestinoFiltro] = useState('');
-  const [allCorridas, setAllCorridas] = useState([]); // Armazena todas as corridas ativas
-  const [filteredCorridas, setFilteredCorridas] = useState([]); // Armazena as corridas filtradas para exibição
-  const [loading, setLoading] = useState(true); // Estado de carregamento
+  const [allCorridas, setAllCorridas] = useState([]);
+  const [filteredCorridas, setFilteredCorridas] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // useEffect para carregar todas as corridas ativas uma vez e manter o listener em tempo real
   useEffect(() => {
     setLoading(true);
     const corridasRef = collection(db, 'corridas');
-    // Consulta para pegar todas as corridas com status 'Ativa'
     const q = query(corridasRef, where('status', '==', 'Ativa'));
 
-    // onSnapshot para escutar mudanças em tempo real
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedCorridas = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      setAllCorridas(fetchedCorridas); // Atualiza a lista completa
-      setLoading(false); // Termina o carregamento
+      setAllCorridas(fetchedCorridas);
+      setLoading(false);
     }, (error) => {
       console.error("Erro ao carregar corridas:", error);
       Alert.alert('Erro', 'Não foi possível carregar as corridas disponíveis.');
       setLoading(false);
     });
 
-    // Retorna a função de unsubscribe para limpar o listener quando o componente for desmontado
     return () => unsubscribe();
-  }, []); // Executa apenas uma vez ao montar o componente
+  }, []);
 
-  // useEffect para filtrar as corridas sempre que 'allCorridas' ou 'destinoFiltro' mudar
   useEffect(() => {
     if (destinoFiltro.trim() === '') {
-      setFilteredCorridas(allCorridas); // Se o filtro estiver vazio, mostra todas
+      setFilteredCorridas(allCorridas);
     } else {
       const filtered = allCorridas.filter(corrida =>
         corrida.destino.toLowerCase().includes(destinoFiltro.toLowerCase())
       );
-      setFilteredCorridas(filtered); // Filtra e atualiza a lista exibida
+      setFilteredCorridas(filtered);
     }
-  }, [destinoFiltro, allCorridas]); // Dependências: filtro e lista completa de corridas
+  }, [destinoFiltro, allCorridas]);
 
   async function handleAceitarCorrida(corrida) {
     const user = auth.currentUser;
@@ -69,31 +64,40 @@ export default function BuscarCorrida() {
       return;
     }
 
+    // Verifica se o usuário já é passageiro desta corrida (verifica pelo UID dentro do objeto)
+    const isAlreadyPassenger = corrida.passageiros && corrida.passageiros.some(p => p.uid === user.uid);
+    if (isAlreadyPassenger) {
+      Alert.alert('Atenção', 'Você já aceitou esta corrida.');
+      return;
+    }
+
     const passageirosAtuais = corrida.passageiros ? corrida.passageiros.length : 0;
     if (passageirosAtuais >= corrida.lugaresDisponiveis) {
       Alert.alert('Corrida Lotada', 'Desculpe, esta corrida não tem mais lugares disponíveis.');
       return;
     }
 
-    if (corrida.passageiros && corrida.passageiros.includes(user.uid)) {
-      Alert.alert('Atenção', 'Você já aceitou esta corrida.');
-      return;
-    }
-
-    if (corrida.motorista === user.uid) {
+    if (corrida.motoristaId === user.uid) {
       Alert.alert('Atenção', 'Você não pode aceitar sua própria corrida como passageiro.');
       return;
     }
 
     try {
       const corridaRef = doc(db, 'corridas', corrida.id);
+      
+      // Adiciona o UID e o nome de exibição do passageiro ao array 'passageiros'
+      // E adiciona apenas o UID ao novo array 'passengerUids'
       await updateDoc(corridaRef, {
-        passageiros: arrayUnion(user.uid)
+        passageiros: arrayUnion({ uid: user.uid, nome: user.displayName || 'Passageiro Desconhecido' }),
+        passengerUids: arrayUnion(user.uid) // <--- Adicionando UID puro para consulta
       });
 
       Alert.alert('Sucesso', 'Corrida aceita com sucesso! Você foi adicionado como passageiro.');
-      // Não precisamos chamar handleBuscar() aqui, pois o onSnapshot já vai atualizar 'allCorridas'
-      // e o useEffect de filtro vai reagir a essa mudança.
+      
+      // Navega para a tela MinhasCorridas
+      if (navigation) {
+        navigation.navigate('MinhasCorridas'); 
+      }
 
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível aceitar a corrida.');
@@ -125,9 +129,27 @@ export default function BuscarCorrida() {
           <Feather name="users" size={14} color="#4A5568" /> Lugares: {passageirosAtuais}/{item.lugaresDisponiveis || 'N/A'}
           {estaLotada && <Text style={styles.lotadaText}> (Lotada)</Text>}
         </Text>
+        <Text style={styles.detailText}>
+          <Feather name="user" size={14} color="#4A5568" /> Motorista: {item.motoristaNome || 'Desconhecido'}
+        </Text>
         <Text style={styles.statusText}>
           <Feather name="info" size={14} color="#007bff" /> Status: {item.status || 'N/A'}
         </Text>
+
+        {/* Exibir passageiros já na corrida */}
+        {item.passageiros && item.passageiros.length > 0 && (
+          <View style={styles.passengersContainer}>
+            <Text style={styles.passengersTitle}>
+              <Feather name="users" size={16} color="#4A5568" /> Passageiros nesta corrida:
+            </Text>
+            {item.passageiros.map((passenger, index) => (
+              <Text key={passenger.uid || index} style={styles.passengerItem}>- {passenger.nome || 'Desconhecido'}</Text>
+            ))}
+          </View>
+        )}
+        {(!item.passageiros || item.passageiros.length === 0) && (
+          <Text style={styles.noPassengersText}>Seja o primeiro passageiro!</Text>
+        )}
 
         <TouchableOpacity
           style={[styles.acceptButton, estaLotada && styles.disabledButton]}
@@ -155,7 +177,7 @@ export default function BuscarCorrida() {
             placeholder="Digite o destino para buscar"
             placeholderTextColor="#A0AEC0"
             value={destinoFiltro}
-            onChangeText={setDestinoFiltro} // <--- Filtra em tempo real
+            onChangeText={setDestinoFiltro}
           />
         </View>
 
@@ -171,7 +193,7 @@ export default function BuscarCorrida() {
 
 
             <FlatList
-              data={filteredCorridas} // Usa a lista filtrada
+              data={filteredCorridas}
               keyExtractor={(item) => item.id}
               renderItem={renderCorrida}
               contentContainerStyle={{ paddingBottom: 20 }}
@@ -237,7 +259,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2D3748',
   },
-  button: { // Removido do JSX, mas mantido aqui caso precise para outros fins
+  button: {
     backgroundColor: '#6B46C1',
     paddingVertical: 16,
     borderRadius: 12,
@@ -249,7 +271,7 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 5,
   },
-  buttonText: { // Removido do JSX
+  buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '700',
@@ -339,5 +361,29 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: '#555',
+  },
+  passengersContainer: {
+    marginTop: 15,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  passengersTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#4A5568',
+  },
+  passengerItem: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
+    marginLeft: 5,
+  },
+  noPassengersText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#A0AEC0',
+    marginTop: 8,
   },
 });

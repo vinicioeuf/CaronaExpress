@@ -8,7 +8,7 @@ import {
   Alert, 
   Platform, 
   ScrollView,
-  SafeAreaView // <--- Adicionado aqui
+  SafeAreaView 
 } from 'react-native';
 import { db, auth } from '../firebase/firebaseConfig';
 import { collection, addDoc } from 'firebase/firestore';
@@ -48,6 +48,8 @@ export default function OferecerCorrida({ navigation }) {
         return;
       }
 
+      const motoristaNome = user.displayName || 'Motorista Desconhecido';
+
       await addDoc(collection(db, 'corridas'), {
         origem,
         destino,
@@ -55,8 +57,10 @@ export default function OferecerCorrida({ navigation }) {
         veiculo,
         lugaresDisponiveis: parsedLugares,
         valor: parsedValor,
-        motorista: user.uid,
-        passageiros: [],
+        motoristaId: user.uid,
+        motoristaNome: motoristaNome,
+        passageiros: [], // Array de objetos { uid, nome }
+        passengerUids: [], // <--- NOVO CAMPO: Array de UIDs para consulta
         criadoEm: new Date(),
         status: 'Ativa'
       });

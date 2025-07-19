@@ -19,7 +19,7 @@ export default function MinhasCorridas() {
   const [corridasPassageiro, setCorridasPassageiro] = useState([]);
   const [corridasMotorista, setCorridasMotorista] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(null);
+  const [userId, setUserId] = useState(null); // UID do usuário logado
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(user => {
@@ -43,9 +43,10 @@ export default function MinhasCorridas() {
 
     setLoading(true);
 
+    // Consulta para corridas onde o usuário é passageiro, usando o campo passengerUids
     const qPassageiro = query(
       collection(db, 'corridas'),
-      where('passageiros', 'array-contains', currentUserId)
+      where('passengerUids', 'array-contains', currentUserId)
     );
     const unsubscribePassageiro = onSnapshot(qPassageiro, (snapshot) => {
       const corridas = snapshot.docs.map(doc => ({
@@ -62,7 +63,7 @@ export default function MinhasCorridas() {
 
     const qMotorista = query(
       collection(db, 'corridas'),
-      where('motorista', '==', currentUserId)
+      where('motoristaId', '==', currentUserId)
     );
     const unsubscribeMotorista = onSnapshot(qMotorista, (snapshot) => {
       const corridas = snapshot.docs.map(doc => ({
@@ -87,7 +88,7 @@ export default function MinhasCorridas() {
 
   const renderCorrida = ({ item }) => {
     const passageirosAtuais = item.passageiros ? item.passageiros.length : 0;
-    const estaLotada = passageirosAtuais >= item.lugaresDisponiveis;
+    const estaLotada = item.lugaresDisponiveis && passageirosAtuais >= item.lugaresDisponiveis;
 
     return (
       <View style={styles.card}>
@@ -113,18 +114,25 @@ export default function MinhasCorridas() {
           <Feather name="dollar-sign" size={14} color="#38A169" /> Valor: R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}
         </Text>
 
-        {/* Exibir passageiros apenas para a aba de motorista */}
-        {abaSelecionada === 'Motorista' && item.passageiros && item.passageiros.length > 0 && (
+        {/* Exibir nome do motorista para passageiros */}
+        {abaSelecionada === 'Passageiro' && (
+          <Text style={styles.detailText}>
+            <Feather name="user" size={14} color="#4A5568" /> Motorista: {item.motoristaNome || 'Desconhecido'}
+          </Text>
+        )}
+
+        {/* Exibir passageiros para AMBAS as abas */}
+        {item.passageiros && item.passageiros.length > 0 && (
           <View style={styles.passengersContainer}>
             <Text style={styles.passengersTitle}>
-              <Feather name="users" size={16} color="#4A5568" /> Passageiros:
+              <Feather name="users" size={16} color="#4A5568" /> Passageiros na corrida:
             </Text>
-            {item.passageiros.map((passengerId, index) => (
-              <Text key={index} style={styles.passengerItem}>- {passengerId}</Text>
+            {item.passageiros.map((passenger, index) => (
+              <Text key={passenger.uid || index} style={styles.passengerItem}>- {passenger.nome || 'Desconhecido'}</Text>
             ))}
           </View>
         )}
-        {abaSelecionada === 'Motorista' && (!item.passageiros || item.passageiros.length === 0) && (
+        {(!item.passageiros || item.passageiros.length === 0) && (
           <Text style={styles.noPassengersText}>Nenhum passageiro ainda.</Text>
         )}
       </View>
@@ -206,7 +214,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2E8F0',
     borderRadius: 15,
     marginBottom: 20,
-    overflow: 'hidden', // Garante que o borderRadius funcione
+    overflow: 'hidden',
   },
   tabButton: {
     flex: 1,
@@ -301,7 +309,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginBottom: 4,
-    marginLeft: 5, // Pequeno recuo para os itens da lista
+    marginLeft: 5,
   },
   noPassengersText: {
     fontSize: 14,

@@ -52,7 +52,7 @@ export default function Home() {
           source={{
             uri: userPhoto
               ? userPhoto
-              : 'https://alexandracriollo.com/wp-content/uploads/2020/12/10-cosas-que-revela-tu-foto-de-perfil-2-1.jpg',
+              : 'https://www.google.com/url?sa=i&url=https%3A%2F%2Fpt.vecteezy.com%2Farte-vetorial%2F20765399-padrao-perfil-conta-desconhecido-icone-preto-silhueta&psig=AOvVaw2DNbCJ-mU9CT8_k0F-NmiY&ust=1753036071041000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCLDz9LjGyY4DFQAAAAAdAAAAABAM',
           }}
           style={styles.avatar}
         />
