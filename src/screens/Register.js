@@ -1,209 +1,233 @@
 import React, { useState } from 'react';
-import { auth } from '../firebase/firebaseConfig';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Dimensions,
+} from 'react-native';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { Text, StyleSheet, ImageBackground, View, Dimensions, Pressable, TextInput } from 'react-native';
+import { auth } from '../firebase/firebaseConfig';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontAwesome } from 'react-native-vector-icons';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import colors from '../../assets/theme/colors';
-import BackgroundImage from '../../assets/appBackground.jpg';
-import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
-import { Ionicons } from "@expo/vector-icons"
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-export default function Register() {
+export default function Register({ navigation }) {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [feedback, setFeedback] = useState(''); 
-  const [animacaoOlho, setAnimacaoOlho] = useState("eye-off")
-  const [senhaVizivel, setSenhaVizivel] = useState(true)
-  
-  async function handleRegister() {
+  const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [senhaVizivel, setSenhaVizivel] = useState(true);
+
+  const toggleSenha = () => setSenhaVizivel(!senhaVizivel);
+
+  const handleRegister = async () => {
+    if (senha !== confirmarSenha) {
+      Alert.alert('Erro', 'As senhas não coincidem');
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
       const user = userCredential.user;
+
       await updateProfile(user, {
-        displayName: nome, 
+        displayName: nome,
       });
-      console.log("Usuário registrado:", user.email, "Nome:", user.displayName);
-      setFeedback("Usuário registrado com sucesso!");
+
+      Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
+      navigation.navigate('Home');
     } catch (error) {
-      console.error("Erro ao registrar:", error);
-      setFeedback("Erro: " + error.message);
+      console.error('Erro ao registrar:', error);
+      Alert.alert('Erro', error.message);
     }
-  }
-
-  function vizibilidade(){
-
-    const novoEstado = !senhaVizivel
-    setSenhaVizivel(novoEstado)
-    setAnimacaoOlho(novoEstado ? "eye-off" : "eye")
-     
-  }
+  };
 
   return (
-    <SafeAreaProvider>
-        <ImageBackground source={BackgroundImage} style={[styles.background, { width: width, height: height }]}>
-        <SafeAreaView style={styles.container}>
-            <View style={styles.viewLoginStyle}>
-                <Text style={{fontSize: 18, fontWeight: "bold"}}>Bem-vindo(a)!</Text>
-                <Text color={colors.mutedText}>Preencha os campos abaixo, para fazer o seu cadastro: </Text>
-                
-                <View style={styles.containerIconStyle}>
-                  <FontAwesome size={20} style={styles.iconStyle} name="user"/>
-                  <TextInput style={styles.inputStyle} onChangeText={setNome} value={nome} placeholder='Nome'/>
-                </View>
-                
-                <View style={styles.containerIconStyle}>
-                  <FontAwesome size={20} style={styles.iconStyle} name="envelope"/>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.box}>
+        <Text style={styles.title}>Bem-vindo(a)!</Text>
+        <Text style={styles.subtitle}>Preencha os campos para se cadastrar</Text>
 
-                  <TextInput style={styles.inputStyle} 
-                    placeholder='E-mail'  
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"/>
-                </View>
+        <View style={styles.inputWrapper}>
+          <FontAwesome name="user" size={18} color={colors.primary} style={styles.inputIcon} />
+          <TextInput
+            placeholder="Nome"
+            style={styles.input}
+            value={nome}
+            onChangeText={setNome}
+          />
+        </View>
 
-                <View style={styles.containerIconStyle}>
-                  <FontAwesome size={20} style={styles.iconStyle} name="lock"/>
-                  <TextInput 
-                  style={styles.inputStyle} 
-                  placeholder='Senha' 
-                  value={senha}
-                  onChangeText={setSenha}
-                  secureTextEntry={senhaVizivel}/>
+        <View style={styles.inputWrapper}>
+          <FontAwesome name="envelope" size={18} color={colors.primary} style={styles.inputIcon} />
+          <TextInput
+            placeholder="E-mail"
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
 
-                  <Pressable onPress={vizibilidade}>
-                    <Ionicons name={animacaoOlho} size={20}/>
-                  </Pressable>
+        <View style={styles.inputWrapper}>
+          <FontAwesome name="lock" size={18} color={colors.primary} style={styles.inputIcon} />
+          <TextInput
+            placeholder="Senha"
+            style={styles.input}
+            value={senha}
+            onChangeText={setSenha}
+            secureTextEntry={senhaVizivel}
+          />
+          <Pressable onPress={toggleSenha}>
+            <Ionicons name={senhaVizivel ? 'eye-off' : 'eye'} size={20} color={colors.primary} />
+          </Pressable>
+        </View>
 
-                </View>
+        <View style={styles.inputWrapper}>
+          <FontAwesome name="lock" size={18} color={colors.primary} style={styles.inputIcon} />
+          <TextInput
+            placeholder="Confirmar senha"
+            style={styles.input}
+            value={confirmarSenha}
+            onChangeText={setConfirmarSenha}
+            secureTextEntry={senhaVizivel}
+          />
+          <Pressable onPress={toggleSenha}>
+            <Ionicons name={senhaVizivel ? 'eye-off' : 'eye'} size={20} color={colors.primary} />
+          </Pressable>
+        </View>
 
-                <View style={styles.containerIconStyle}>
-                  <FontAwesome size={20} style={styles.iconStyle} name="lock"/>
-                  <TextInput 
-                  style={styles.inputStyle} 
-                  placeholder='Confirmar senha'
-                  secureTextEntry={senhaVizivel}
-                  />
+        <Pressable onPress={handleRegister} style={{ width: '100%' }}>
+          <LinearGradient colors={colors.gradientPrimary} style={styles.button}>
+            <Text style={styles.buttonText}>Cadastrar</Text>
+          </LinearGradient>
+        </Pressable>
 
-                  <Pressable onPress={vizibilidade}>
-                    <Ionicons name={animacaoOlho} size={20}/>
-                  </Pressable>
-                </View>
+        <View style={styles.loginRedirect}>
+          <Text style={styles.loginText}>Já tem uma conta?</Text>
+          <Pressable onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.loginLink}>Entrar</Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.orText}>ou</Text>
+
+        <View style={styles.socialIcons}>
+          {['google', 'apple', 'facebook'].map((iconName) => (
+            <View style={styles.socialButton} key={iconName}>
+              <FontAwesome name={iconName} size={20} color="white" />
             </View>
-            <View style={[{alignItems: "center", marginTop: 20}, styles.viewLoginStyle]}>
-                
-                <View>
-                  <Pressable onPress={handleRegister}>
-                      <LinearGradient colors={colors.gradientPrimary} style={styles.buttonStyle}>
-                          <Text style={[{fontSize: 15}, {color: colors.text}]}>Continuar</Text>
-                      </LinearGradient>
-                  </Pressable>
-                </View>
+          ))}
+        </View>
 
-                <View style={{flex: 1, flexDirection:"row", gap: 5}}>
-                  <Text>Já tem uma conta?</Text>
-                  <Pressable onPress={() => navigation.navigate('Login')}>
-                    <Text style={{textDecorationLine: "underline"}}>Entrar</Text>
-                  </Pressable>
-                </View>
-
-                <View>
-                  <Text style={{ color: colors.mutedText}}>ou</Text>
-                </View>
-                
-                <View style={styles.iconsContainer}>
-                  {['google', 'apple', 'facebook'].map((iconName) => (
-                      <View style={styles.iconCircle} key={iconName}>
-                        <LinearGradient colors={colors.gradientPrimary} style={styles.iconCircleBackground}>
-                            <FontAwesome name={iconName} size={20} color={colors.text} />
-                        </LinearGradient>
-                      </View>
-                  ))}
-                </View>
-
-                <View>
-                  <Text style={{ color: colors.mutedText }}>Entre de outra forma</Text>
-                </View>
-
-            </View>
-        </SafeAreaView>
-        </ImageBackground>
-    </SafeAreaProvider>
+        <Text style={styles.altText}>Entre de outra forma</Text>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
+    backgroundColor: '#f8f8f8',
     alignItems: 'center',
-    padding: 20,
-    marginTop: 200,
-    gap: 15,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  background: {
+  box: {
+    width: '100%',
+    maxWidth: 400,
+    padding: 24,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '600',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.mutedText,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    width: '100%',
+    marginTop: 12,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  input: {
     flex: 1,
-    resizeMode: 'cover',
+    fontSize: 15,
+    color: '#333',
   },
-  iconsContainer: {
+  button: {
+    marginTop: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    alignItems: 'center',
+    width: '100%',
+  },
+  buttonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loginRedirect: {
+    flexDirection: 'row',
+    marginTop: 20,
+  },
+  loginText: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  loginLink: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  orText: {
+    marginVertical: 12,
+    color: colors.mutedText,
+  },
+  socialIcons: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    gap: 20,
-    width: 250,
+    gap: 16,
+    marginBottom: 8,
   },
-  iconCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
+  socialButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 30,
+    padding: 12,
+    marginHorizontal: 6,
   },
-  iconCircleBackground: {
-    width: 50,
-    height: 50,
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
+  altText: {
+    fontSize: 13,
+    color: colors.mutedText,
   },
-  viewLoginStyle: {
-    gap: 6, 
-  }, 
-  inputStyle: {
-    flex: 1,
-    height: 50,
-    padding: 8, 
-    backgroundColor: colors.inputBackGroud, 
-    color: colors.text2, 
-    borderRadius: 8, 
-    textAlign: "left",
-    alignItems: "center",
-  }, 
-  buttonStyle: {
-    width: 200, 
-    height: 40, 
-    borderRadius: 8, 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center", 
-    padding: 8,
-
-  },
-  containerIconStyle: {
-    flexDirection: "row", 
-    alignItems: "center", 
-    justifyContent: "center", 
-    backgroundColor: colors.inputBackGroud,
-    borderRadius: 8, 
-    paddingHorizontal: 10, 
-    height: 50, 
-    marginVertical: 5
-  }, 
-  iconStyle: {
-    marginRight: 10, 
-  }, 
 });

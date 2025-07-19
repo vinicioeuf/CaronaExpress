@@ -1,135 +1,135 @@
-import { Text, TextInput, Pressable, View, StyleSheet, TouchableOpacity} from "react-native"
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Pressable,
+  StyleSheet,
+  Dimensions,
+  Alert,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { sendPasswordResetEmail } from "firebase/auth"
-import { auth } from "../firebase/firebaseConfig"
-import React, { useState } from "react"
-import { Ionicons } from "@expo/vector-icons"
+import { Ionicons } from "@expo/vector-icons";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "../firebase/firebaseConfig";
+import { LinearGradient } from "expo-linear-gradient";
 import colors from "../../assets/theme/colors";
-import { LinearGradient } from 'expo-linear-gradient';
 
-export function PasswordRecovery ({fecharModal}) {
+const { width } = Dimensions.get("window");
 
-    const [email, setEmail] = useState();
+export function PasswordRecovery({ fecharModal }) {
+  const [email, setEmail] = useState("");
 
-    const onHandleChange = (e) => {
-        setEmail(e.target.value)
+  const onHandlePress = async () => {
+    if (!email) {
+      Alert.alert("Erro", "Insira um e-mail válido.");
+      return;
     }
 
-    const onHandlePress = async () => {
-
-        await sendPasswordResetEmail(auth, email).then(() => {
-            alert('email de recuperação enviado!')
-        }).catch((error) => {
-            alert('email inválido!')
-        })
-
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert("Sucesso", "E-mail de recuperação enviado!");
+      fecharModal();
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível enviar o e-mail. Verifique o endereço.");
     }
+  };
 
-    return (
-        <SafeAreaView style={styles.container}>
-             
-             <View>
-                
-                <LinearGradient colors={colors.gradientSeg} style={styles.areaModal}>
-                    <View style={styles.containerSairStyle}>
-                        <Pressable onPress={fecharModal}>
-                            <Ionicons name="close-circle-sharp" color="red" size={30}/>
-                        </Pressable>
-                    </View>
-                    
-                    <View>
-                        <Text style={{
-                            fontWeight: "900",
-                            fontSize: 20,
-                            color: colors.textcolor3
-                        }}>Esqueceu sua senha?</Text>
-                    </View>
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.modalBox}>
+        <View style={styles.closeButtonContainer}>
+          <Pressable onPress={fecharModal}>
+            <Ionicons name="close-circle" size={28} color="red" />
+          </Pressable>
+        </View>
 
-                    <View>
-                        <Text style={styles.textStyle}>
-                            Nos diga o seu email para podermos
-                            redefinir sua senha
-                        </Text>
-                    </View>
+        <Text style={styles.title}>Esqueceu sua senha?</Text>
+        <Text style={styles.subtitle}>
+          Informe seu e-mail para redefinir sua senha.
+        </Text>
 
-                    <TextInput 
-                        style={styles.textInputStyle} 
-                        keyboardType="email-adresss" 
-                        placeholder="Insira seu Email" 
-                        id="email" 
-                        onChange={onHandleChange}
-                         placeholderTextColor={colors.mutedText}
-                        />
+        <TextInput
+          style={styles.input}
+          placeholder="Insira seu e-mail"
+          placeholderTextColor={colors.mutedText}
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+        />
 
-                    <TouchableOpacity onPress={onHandlePress}>
-                        <LinearGradient colors={colors.gradientPrimary} style={styles.buttonStyle}>
-                            <Text style={{
-                                color: colors.text, 
-                                fontWeight: "bold", 
-                                fontSize: 12
-                            }}>Recuperar Senha</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-
-                </LinearGradient>
-
-             </View>
-            
-
-        </SafeAreaView>
-    )
+        <TouchableOpacity onPress={onHandlePress} style={{ width: "100%" }}>
+          <LinearGradient colors={colors.gradientPrimary} style={styles.button}>
+            <Text style={styles.buttonText}>Recuperar Senha</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
 }
 
-
 const styles = StyleSheet.create({
-    container: {
-        flex: 1, 
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: 'rgba(24, 24, 24, 0.9)'
-    },
-    areaModal: {
-        width: 325,
-        height: 227,
-        borderRadius: 20,
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 10,
-    },
-    containerSairStyle: {
-        alignItems: "flex-end",
-        width: "100%",
-        height: "auto",
-        marginBottom: 5,
-    }, 
-    buttonStyle: {
-        marginTop: 10,
-        marginBottom: 10,
-        width: 150, 
-        height: 40, 
-        borderRadius: 8, 
-        justifyContent: "center", 
-        alignItems: "center", 
-        padding: 8,
-        elevation: 5, 
-        shadowColor: "#000",
-        shadowOffset: {width: 0, height: 2}, 
-        shadowOpacity: 0.25, 
-        shadowRadius: 3.84, 
-        overflow: "hidden",
-  }, 
-  textInputStyle: {
-        padding: 8, 
-        borderRadius: 8, 
-        width: 300,
-        height: "auto",
-        backgroundColor: colors.background,
-        marginBottom: 10,
-  }, 
-  textStyle: {
-        textAlign: "left", 
-        marginBottom: 20,
-        fontSize: 12,
-        color: colors.textcolor3,
-  }
-})
+  container: {
+    flex: 1,
+    backgroundColor: "rgba(24, 24, 24, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  modalBox: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 6,
+  },
+  closeButtonContainer: {
+    alignSelf: "flex-end",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 8,
+    marginBottom: 6,
+    color: colors.textcolor3,
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.mutedText,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  input: {
+    width: "100%",
+    height: 48,
+    backgroundColor: colors.inputBackGroud || "#f0f0f0",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    marginBottom: 16,
+  },
+  button: {
+    height: 44,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  buttonText: {
+    color: colors.text,
+    fontWeight: "600",
+    fontSize: 14,
+  },
+});
