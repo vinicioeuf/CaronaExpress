@@ -12,13 +12,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { collection, getFirestore, query, where, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { app, auth } from '../firebase/firebaseConfig';
-import { Feather } from '@expo/vector-icons';
+import { collection, getFirestore, query, where, onSnapshot, doc, updateDoc, arrayUnion, runTransaction } from 'firebase/firestore';
+import { app, auth, db } from '../firebase/firebaseConfig';
+import { Feather } from '@expo/vector-icons'; // <--- Adicionado: Importar Feather
 
-const db = getFirestore(app);
-
-export default function BuscarCorrida({ navigation }) { // Adicionado navigation prop
+export default function BuscarCorrida({ navigation }) {
   const [destinoFiltro, setDestinoFiltro] = useState('');
   const [allCorridas, setAllCorridas] = useState([]);
   const [filteredCorridas, setFilteredCorridas] = useState([]);
@@ -64,7 +62,6 @@ export default function BuscarCorrida({ navigation }) { // Adicionado navigation
       return;
     }
 
-    // Verifica se o usuário já é passageiro desta corrida (verifica pelo UID dentro do objeto)
     const isAlreadyPassenger = corrida.passageiros && corrida.passageiros.some(p => p.uid === user.uid);
     if (isAlreadyPassenger) {
       Alert.alert('Atenção', 'Você já aceitou esta corrida.');
@@ -82,26 +79,60 @@ export default function BuscarCorrida({ navigation }) { // Adicionado navigation
       return;
     }
 
+    setLoading(true);
     try {
-      const corridaRef = doc(db, 'corridas', corrida.id);
-      
-      // Adiciona o UID e o nome de exibição do passageiro ao array 'passageiros'
-      // E adiciona apenas o UID ao novo array 'passengerUids'
-      await updateDoc(corridaRef, {
-        passageiros: arrayUnion({ uid: user.uid, nome: user.displayName || 'Passageiro Desconhecido' }),
-        passengerUids: arrayUnion(user.uid) // <--- Adicionando UID puro para consulta
+      await runTransaction(db, async (transaction) => {
+        const passengerRef = doc(db, 'users', user.uid);
+        const driverRef = doc(db, 'users', corrida.motoristaId);
+        const corridaRef = doc(db, 'corridas', corrida.id);
+
+        const passengerDoc = await transaction.get(passengerRef);
+        const driverDoc = await transaction.get(driverRef);
+        const corridaDoc = await transaction.get(corridaRef);
+
+        if (!passengerDoc.exists() || !driverDoc.exists() || !corridaDoc.exists()) {
+          throw "Documentos não encontrados! Tente novamente.";
+        }
+
+        const passengerData = passengerDoc.data();
+        const driverData = driverDoc.data();
+        const corridaData = corridaDoc.data();
+
+        const valorCorrida = corridaData.valor;
+        const currentPassengerBalance = passengerData.balance || 0;
+        const currentDriverBalance = driverData.balance || 0;
+
+        if (currentPassengerBalance < valorCorrida) {
+          throw "Saldo insuficiente para aceitar esta corrida.";
+        }
+
+        const currentPassageiros = corridaData.passageiros ? corridaData.passageiros.length : 0;
+        if (currentPassageiros >= corridaData.lugaresDisponiveis) {
+          throw "Corrida lotada enquanto você tentava aceitar.";
+        }
+        
+        transaction.update(passengerRef, {
+          balance: currentPassengerBalance - valorCorrida
+        });
+        transaction.update(driverRef, {
+          balance: currentDriverBalance + valorCorrida
+        });
+        transaction.update(corridaRef, {
+          passageiros: arrayUnion({ uid: user.uid, nome: user.displayName || 'Passageiro Desconhecido' }),
+          passengerUids: arrayUnion(user.uid)
+        });
       });
 
-      Alert.alert('Sucesso', 'Corrida aceita com sucesso! Você foi adicionado como passageiro.');
-      
-      // Navega para a tela MinhasCorridas
+      Alert.alert('Sucesso', 'Corrida aceita! O valor foi transferido para o motorista.');
       if (navigation) {
-        navigation.navigate('MinhasCorridas'); 
+        navigation.navigate('MinhasCorridas');
       }
 
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível aceitar a corrida.');
-      console.error('Erro ao aceitar corrida:', error);
+      console.error('Erro na transação de aceitar corrida:', error);
+      Alert.alert('Erro', error.message || 'Não foi possível aceitar a corrida. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -115,26 +146,16 @@ export default function BuscarCorrida({ navigation }) { // Adicionado navigation
           <Feather name="map-pin" size={18} color="#6B46C1" /> {item.origem} → {item.destino}
         </Text>
         <View style={styles.infoRow}>
-          <Text style={styles.detailText}>
-            <Feather name="clock" size={14} color="#4A5568" /> {item.horario}
-          </Text>
-          <Text style={styles.detailText}>
-            <Feather name="dollar-sign" size={14} color="#38A169" /> R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}
-          </Text>
+          {/* Removido o espaço extra que causava o erro de text node */}
+          <Text style={styles.detailText}><Feather name="clock" size={14} color="#4A5568" /> {item.horario}</Text>
+          <Text style={styles.detailText}><Feather name="dollar-sign" size={14} color="#38A169" /> R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}</Text>
         </View>
-        <Text style={styles.detailText}>
-          <Feather name="truck" size={14} color="#4A5568" /> Veículo: {item.veiculo || 'N/A'}
-        </Text>
-        <Text style={styles.detailText}>
-          <Feather name="users" size={14} color="#4A5568" /> Lugares: {passageirosAtuais}/{item.lugaresDisponiveis || 'N/A'}
+        <Text style={styles.detailText}><Feather name="truck" size={14} color="#4A5568" /> Veículo: {item.veiculo || 'N/A'}</Text>
+        <Text style={styles.detailText}><Feather name="users" size={14} color="#4A5568" /> Lugares: {passageirosAtuais}/{item.lugaresDisponiveis || 'N/A'}
           {estaLotada && <Text style={styles.lotadaText}> (Lotada)</Text>}
         </Text>
-        <Text style={styles.detailText}>
-          <Feather name="user" size={14} color="#4A5568" /> Motorista: {item.motoristaNome || 'Desconhecido'}
-        </Text>
-        <Text style={styles.statusText}>
-          <Feather name="info" size={14} color="#007bff" /> Status: {item.status || 'N/A'}
-        </Text>
+        <Text style={styles.detailText}><Feather name="user" size={14} color="#4A5568" /> Motorista: {item.motoristaNome || 'Desconhecido'}</Text>
+        <Text style={styles.statusText}><Feather name="info" size={14} color="#007bff" /> Status: {item.status || 'N/A'}</Text>
 
         {/* Exibir passageiros já na corrida */}
         {item.passageiros && item.passageiros.length > 0 && (

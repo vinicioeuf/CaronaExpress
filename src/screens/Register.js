@@ -8,14 +8,15 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
-  ScrollView, // Adicionado para rolável em telas menores
-  SafeAreaView, // Certifique-se de que está importado de 'react-native' ou 'react-native-safe-area-context'
+  ScrollView,
+  SafeAreaView,
+  Platform, // Importar Platform
 } from 'react-native';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
-// Removendo importação de colors, usando valores diretos
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { ensureUserProfile } from '../firebase/firebaseConfig'; // <--- Importar ensureUserProfile
 
 const { width } = Dimensions.get('window');
 
@@ -24,7 +25,7 @@ export default function Register({ navigation }) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
-  const [senhaVizivel, setSenhaVizivel] = useState(false); // Mudado para falso por padrão para ocultar senha
+  const [senhaVizivel, setSenhaVizivel] = useState(false);
 
   const toggleSenha = () => setSenhaVizivel(!senhaVizivel);
 
@@ -42,8 +43,10 @@ export default function Register({ navigation }) {
         displayName: nome,
       });
 
+      await ensureUserProfile(user); // <--- Chamar para garantir perfil e saldo
+
       Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
-      navigation.navigate('Home'); // Navega para Home após o cadastro
+      navigation.navigate('Home');
     } catch (error) {
       console.error('Erro ao registrar:', error);
       Alert.alert('Erro', error.message);
@@ -55,7 +58,7 @@ export default function Register({ navigation }) {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>Crie sua conta!</Text> {/* Título ajustado */}
+            <Text style={styles.title}>Crie sua conta!</Text>
             <Text style={styles.subtitle}>Preencha os campos para se cadastrar</Text>
           </View>
 
@@ -63,7 +66,7 @@ export default function Register({ navigation }) {
           <View style={styles.inputWrapper}>
             <FontAwesome name="user" size={18} color="#4A5568" style={styles.inputIcon} />
             <TextInput
-              placeholder="Nome completo" // Placeholder mais descritivo
+              placeholder="Nome completo"
               placeholderTextColor="#A0AEC0"
               style={styles.input}
               value={nome}
@@ -110,7 +113,7 @@ export default function Register({ navigation }) {
               style={styles.input}
               value={confirmarSenha}
               onChangeText={setConfirmarSenha}
-              secureTextEntry={!senhaVizivel} // Usa !senhaVizivel para ocultar/mostrar
+              secureTextEntry={!senhaVizivel}
             />
             <Pressable onPress={toggleSenha} style={styles.eyeIcon}>
               <Ionicons name={senhaVizivel ? 'eye-outline' : 'eye-off-outline'} size={20} color="#4A5568" />
@@ -148,7 +151,7 @@ export default function Register({ navigation }) {
             </TouchableOpacity> */}
           </View>
 
-          <Text style={styles.altText}>Cadastre-se com sua conta Google</Text> {/* Texto ajustado */}
+          <Text style={styles.altText}>Cadastre-se com sua conta Google</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -158,7 +161,7 @@ export default function Register({ navigation }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7FAFC', // Cor de fundo suave
+    backgroundColor: '#F7FAFC',
   },
   scrollContainer: {
     flexGrow: 1,

@@ -11,14 +11,15 @@ import {
   Alert,
   ScrollView,
   SafeAreaView,
+  Platform, // Importar Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-// Adicionando a importação do AsyncStorage
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
 import { PasswordRecovery } from './PasswordRecovery';
+import { ensureUserProfile } from '../firebase/firebaseConfig'; // <--- Importar ensureUserProfile
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +37,8 @@ export default function Login({ navigation }) {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, senha);
       const user = userCredential.user;
+
+      await ensureUserProfile(user); // <--- Chamar para garantir perfil e saldo
 
       await AsyncStorage.setItem('user', JSON.stringify({
         name: user.displayName || 'Usuário',
@@ -56,6 +59,8 @@ export default function Login({ navigation }) {
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
+
+      await ensureUserProfile(user); // <--- Chamar para garantir perfil e saldo
 
       await AsyncStorage.setItem('user', JSON.stringify({
         name: user.displayName,

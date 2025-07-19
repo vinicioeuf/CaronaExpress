@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,80 +6,130 @@ import {
   Image,
   TouchableOpacity,
   Alert,
-  SafeAreaView, // Certifique-se de que está importado
-  ScrollView, // Para permitir rolagem
-  TextInput, // Para os novos campos de valor
-  Platform, // Para estilos específicos de plataforma
+  SafeAreaView,
+  ScrollView,
+  TextInput,
+  Platform,
+  // Removido Modal e Pressable daqui, pois não serão mais usados para QR Code
+  ActivityIndicator,
 } from 'react-native';
-import { Feather, FontAwesome } from '@expo/vector-icons'; // Importando ícones
+import { Feather, FontAwesome, Ionicons } from '@expo/vector-icons';
 
-// Importações do Firebase Auth e Firestore (se necessário para dados reais)
-// import { auth, db } from '../firebase/firebaseConfig';
-// import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase/firebaseConfig';
+import { doc, getDoc, updateDoc, onSnapshot, runTransaction } from 'firebase/firestore';
 
 export default function Saldo() {
-  // Dados mockados do usuário. Em um aplicativo real, você buscaria isso do Firebase Auth e Firestore.
-  const [usuario, setUsuario] = useState({
-    nome: 'Victor Silva',
-    email: 'victor.silva@email.com',
-    saldo: 1234.56,
-    foto: 'https://i.pravatar.cc/150?img=12', // Exemplo de URL de imagem de avatar
-  });
+  const [userData, setUserData] = useState(null);
+  const [depositoValor, setDepositoValor] = useState('');
+  const [saqueValor, setSaqueValor] = useState('');
+  const [loading, setLoading] = useState(true);
+  // Removido estados relacionados ao QR Code Pix
+  // const [qrCodeModalVisible, setQrCodeModalVisible] = useState(false);
+  // const [pixQrCodeBase64, setPixQrCodeBase64] = useState('');
+  // const [pixCopiaCola, setPixCopiaCola] = useState('');
 
-  const [depositoValor, setDepositoValor] = useState(''); // Estado para o valor do depósito
-  const [saqueValor, setSaqueValor] = useState('');     // Estado para o valor do saque
+  // Removido chaves do Mercado Pago
+  // const MERCADO_PAGO_PUBLIC_KEY = "TEST-e616f733-4f05-4c07-8898-d14d2a9d20c5";
+  // const MERCADO_PAGO_ACCESS_TOKEN = "YOUR_MERCADO_PAGO_ACCESS_TOKEN";
 
-  // Exemplo de como você buscaria dados reais (descomente e adapte se for usar)
-  /*
   useEffect(() => {
-    const fetchUserData = async () => {
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        // Exemplo: buscar perfil de usuário de uma coleção 'users' no Firestore
-        // const userDocRef = doc(db, 'users', currentUser.uid);
-        // const userDocSnap = await getDoc(userDocRef);
-        // if (userDocSnap.exists()) {
-        //   setUsuario({
-        //     ...usuario, // Mantém dados mockados se não houver no Firestore
-        //     nome: userDocSnap.data().displayName || currentUser.displayName,
-        //     email: currentUser.email,
-        //     saldo: userDocSnap.data().saldo || 0,
-        //     foto: currentUser.photoURL || 'https://i.pravatar.cc/150?img=avatar-default',
-        //   });
-        // } else {
-          setUsuario({
-            ...usuario,
-            nome: currentUser.displayName || 'Usuário',
-            email: currentUser.email,
-            foto: currentUser.photoURL || 'https://i.pravatar.cc/150?img=avatar-default',
-          });
-        // }
-      }
-    };
-    fetchUserData();
-  }, []);
-  */
+    const unsubscribeAuth = auth.onAuthStateChanged(user => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setUserData(docSnap.data());
+          } else {
+            console.warn("Documento de usuário não encontrado no Firestore.");
+            setUserData({
+                displayName: user.displayName || 'Usuário',
+                email: user.email,
+                photoURL: user.photoURL || null,
+                balance: 0,
+            });
+          }
+          setLoading(false);
+        }, (error) => {
+          console.error("Erro ao carregar dados do usuário:", error);
+          Alert.alert("Erro", "Não foi possível carregar seus dados de perfil.");
+          setLoading(false);
+        });
 
-  function handleDepositar() {
+        return () => unsubscribeSnapshot();
+      } else {
+        setUserData(null);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  const handleDepositar = async () => {
     const valor = parseFloat(depositoValor.replace(',', '.'));
     if (isNaN(valor) || valor <= 0) {
       Alert.alert('Erro', 'Por favor, insira um valor de depósito válido.');
       return;
     }
-    // Lógica de depósito (ainda não implementada)
-    Alert.alert('Depósito', `Função de depósito de R$ ${valor.toFixed(2).replace('.', ',')} ainda não implementada.`);
-    setDepositoValor(''); // Limpa o campo
-  }
 
-  function handleSacar() {
+    if (!userData || !auth.currentUser) { // Verifica se userData e auth.currentUser estão disponíveis
+        Alert.alert('Erro', 'Dados do usuário incompletos ou não autenticado para depósito.');
+        return;
+    }
+
+    setLoading(true);
+    try {
+        const userDocRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(userDocRef, {
+            balance: (userData.balance || 0) + valor // Garante que balance seja um número
+        });
+        Alert.alert('Sucesso', `Depósito de R$ ${valor.toFixed(2).replace('.', ',')} realizado com sucesso!`);
+        setDepositoValor(''); // Limpa o campo
+    } catch (firestoreError) {
+        console.error("Erro ao realizar depósito no Firestore:", firestoreError);
+        Alert.alert("Erro", "Não foi possível realizar o depósito. Tente novamente.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const handleSacar = async () => {
     const valor = parseFloat(saqueValor.replace(',', '.'));
     if (isNaN(valor) || valor <= 0) {
       Alert.alert('Erro', 'Por favor, insira um valor de saque válido.');
       return;
     }
-    // Lógica de saque (ainda não implementada)
-    Alert.alert('Saque', `Função de saque de R$ ${valor.toFixed(2).replace('.', ',')} ainda não implementada.`);
-    setSaqueValor(''); // Limpa o campo
+    if (!userData || (userData.balance || 0) < valor) { // Garante que balance seja um número
+      Alert.alert('Erro', 'Saldo insuficiente para realizar o saque.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userDocRef, {
+        balance: userData.balance - valor
+      });
+
+      Alert.alert('Sucesso', `Saque de R$ ${valor.toFixed(2).replace('.', ',')} solicitado. Seu saldo foi atualizado.`);
+      setSaqueValor('');
+    } catch (error) {
+      console.error('Erro ao solicitar saque:', error);
+      Alert.alert('Erro no Saque', 'Não foi possível solicitar o saque. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6B46C1" />
+          <Text style={styles.loadingText}>Carregando perfil e saldo...</Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -92,14 +142,10 @@ export default function Saldo() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Informações do Usuário</Text>
             <View style={styles.userInfo}>
-              <Image source={{ uri: usuario.foto }} style={styles.avatar} />
+              <Image source={{ uri: userData?.photoURL || 'https://placehold.co/150x150/E2E8F0/4A5568?text=User' }} style={styles.avatar} />
               <View style={styles.infoList}>
-                <Text style={styles.infoItem}>
-                  <Feather name="user" size={16} color="#4A5568" /> Nome: {usuario.nome}
-                </Text>
-                <Text style={styles.infoItem}>
-                  <Feather name="mail" size={16} color="#4A5568" /> Email: {usuario.email}
-                </Text>
+                <Text style={styles.infoItem}><Feather name="user" size={16} color="#4A5568" /> Nome: {userData?.displayName || 'Usuário'}</Text>
+                <Text style={styles.infoItem}><Feather name="mail" size={16} color="#4A5568" /> Email: {userData?.email || 'N/A'}</Text>
               </View>
             </View>
           </View>
@@ -109,13 +155,13 @@ export default function Saldo() {
             <Text style={styles.cardTitle}>Saldo Atual</Text>
             <View style={styles.balanceInfo}>
               <Text style={styles.balanceLabel}>Seu Saldo:</Text>
-              <Text style={styles.balanceValue}>R$ {usuario.saldo.toFixed(2).replace('.', ',')}</Text>
+              <Text style={styles.balanceValue}>R$ {userData?.balance !== undefined ? userData.balance.toFixed(2).replace('.', ',') : '0,00'}</Text>
             </View>
           </View>
 
           {/* Seção de Depósito */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Depositar</Text>
+            <Text style={styles.cardTitle}>Depositar</Text> {/* Título ajustado */}
             <View style={styles.inputWrapper}>
               <FontAwesome name="money" size={20} color="#38A169" style={styles.inputIcon} />
               <TextInput
@@ -134,7 +180,7 @@ export default function Saldo() {
 
           {/* Seção de Saque */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Sacar</Text>
+            <Text style={styles.cardTitle}>Sacar</Text> {/* Título ajustado */}
             <View style={styles.inputWrapper}>
               <FontAwesome name="bank" size={20} color="#E53E3E" style={styles.inputIcon} />
               <TextInput
@@ -153,6 +199,36 @@ export default function Saldo() {
 
         </View>
       </ScrollView>
+
+      {/* Removido o Modal de QR Code */}
+      {/* <Modal
+        animationType="fade"
+        transparent={true}
+        visible={qrCodeModalVisible}
+        onRequestClose={() => setQrCodeModalVisible(false)}
+      >
+        <Pressable style={styles.qrModalOverlay} onPress={() => setQrCodeModalVisible(false)}>
+          <View style={styles.qrModalContent}>
+            <Pressable style={styles.qrModalCloseButton} onPress={() => setQrCodeModalVisible(false)}>
+              <Ionicons name="close-circle-outline" size={30} color="#4A5568" />
+            </Pressable>
+            <Text style={styles.qrModalTitle}>Escaneie para Depositar</Text>
+            {pixQrCodeBase64 ? (
+              <Image
+                source={{ uri: `data:image/png;base64,${pixQrCodeBase64}` }}
+                style={styles.qrCodeImage}
+              />
+            ) : (
+              <Text style={styles.qrModalText}>Gerando QR Code...</Text>
+            )}
+            <Text style={styles.qrModalSubtitle}>Ou copie e cole o código:</Text>
+            <Text selectable={true} style={styles.pixCopiaColaText}>{pixCopiaCola}</Text>
+            <Text style={styles.qrModalWarning}>
+              * Em um app real, o saldo só seria atualizado após a confirmação do pagamento pelo Mercado Pago (via webhook para um backend).
+            </Text>
+          </View>
+        </Pressable>
+      </Modal> */}
     </SafeAreaView>
   );
 }
@@ -160,7 +236,7 @@ export default function Saldo() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7FAFC', // Cor de fundo suave
+    backgroundColor: '#F7FAFC',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -168,7 +244,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 25, // Padding lateral consistente
+    paddingHorizontal: 25,
   },
   headerTitle: {
     fontSize: 28,
@@ -178,11 +254,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: {
-    backgroundColor: '#FFFFFF', // Fundo branco para cards
-    borderRadius: 15, // Cantos arredondados
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#000', // Sombra sutil
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
@@ -194,7 +270,7 @@ const styles = StyleSheet.create({
     color: '#2D3748',
     marginBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0', // Linha divisória
+    borderBottomColor: '#E2E8F0',
     paddingBottom: 10,
   },
   userInfo: {
@@ -205,10 +281,10 @@ const styles = StyleSheet.create({
   avatar: {
     width: 80,
     height: 80,
-    borderRadius: 40, // Avatar circular
+    borderRadius: 40,
     marginRight: 15,
     borderWidth: 2,
-    borderColor: '#6B46C1', // Borda colorida
+    borderColor: '#6B46C1',
   },
   infoList: {
     flex: 1,
@@ -217,7 +293,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#4A5568',
     marginBottom: 5,
-    flexDirection: 'row', // Para alinhar ícone e texto
+    flexDirection: 'row',
     alignItems: 'center',
   },
   balanceInfo: {
@@ -231,27 +307,27 @@ const styles = StyleSheet.create({
     color: '#4A5568',
     fontWeight: '500',
   },
-  saldoValor: {
+  balanceValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#38A169', // Verde para saldo positivo
+    color: '#38A169',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F7FAFC', // Fundo mais claro para inputs dentro de cards
+    backgroundColor: '#F7FAFC',
     borderRadius: 10,
     paddingHorizontal: 15,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#CBD5E0', // Borda sutil
+    borderColor: '#CBD5E0',
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    height: 45, // Altura um pouco menor para inputs dentro de cards
+    height: 45,
     fontSize: 16,
     color: '#2D3748',
   },
@@ -267,17 +343,102 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   depositButton: {
-    backgroundColor: '#38A169', // Verde para depósito
+    backgroundColor: '#38A169',
     shadowColor: '#38A169',
   },
   withdrawButton: {
-    backgroundColor: '#E53E3E', // Vermelho para saque
+    backgroundColor: '#E53E3E',
     shadowColor: '#E53E3E',
-    marginTop: 10, // Espaçamento entre botões
+    marginTop: 10,
   },
   buttonText: {
     color: '#fff',
     fontSize: 17,
     fontWeight: '700',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F7FAFC',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#555',
+  },
+  // Estilos do Modal QR Code removidos, mas mantidos aqui para referência se precisar reintroduzir
+  qrModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  qrModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 25,
+    width: '90%',
+    maxWidth: 350,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  qrModalCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 5,
+    zIndex: 1,
+  },
+  qrModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  qrCodeImage: {
+    width: 200,
+    height: 200,
+    resizeMode: 'contain',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  qrModalSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4A5568',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  pixCopiaColaText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+  },
+  qrModalText: {
+    fontSize: 15,
+    color: '#4A5568',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  qrModalWarning: {
+    fontSize: 12,
+    color: '#E53E3E',
+    textAlign: 'center',
+    marginTop: 15,
+    fontStyle: 'italic',
   },
 });
