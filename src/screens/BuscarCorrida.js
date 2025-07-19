@@ -14,13 +14,38 @@ import {
 
 import { collection, getFirestore, query, where, onSnapshot, doc, updateDoc, arrayUnion, runTransaction } from 'firebase/firestore';
 import { app, auth, db } from '../firebase/firebaseConfig';
-import { Feather } from '@expo/vector-icons'; // <--- Adicionado: Importar Feather
+import { Feather } from '@expo/vector-icons';
+import SALGUEIRO_LOCATIONS from '../componets/salgueiroLocations.json'; // Importar o JSON
 
 export default function BuscarCorrida({ navigation }) {
   const [destinoFiltro, setDestinoFiltro] = useState('');
   const [allCorridas, setAllCorridas] = useState([]);
   const [filteredCorridas, setFilteredCorridas] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Estados para as sugestões de autocomplete
+  const [filteredDestinationSuggestions, setFilteredDestinationSuggestions] = useState([]);
+  const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
+
+  // Função de filtro para Destino
+  const handleDestinationFilterChange = (text) => {
+    setDestinoFiltro(text);
+    if (text.length > 0) {
+      const filtered = SALGUEIRO_LOCATIONS.filter(location =>
+        location.toLowerCase().includes(text.toLowerCase())
+      );
+      setFilteredDestinationSuggestions(filtered);
+      setShowDestinationSuggestions(true);
+    } else {
+      setShowDestinationSuggestions(false);
+    }
+  };
+
+  // Função de seleção para Destino
+  const selectDestinationFilter = (location) => {
+    setDestinoFiltro(location);
+    setShowDestinationSuggestions(false);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -146,7 +171,6 @@ export default function BuscarCorrida({ navigation }) {
           <Feather name="map-pin" size={18} color="#6B46C1" /> {item.origem} → {item.destino}
         </Text>
         <View style={styles.infoRow}>
-          {/* Removido o espaço extra que causava o erro de text node */}
           <Text style={styles.detailText}><Feather name="clock" size={14} color="#4A5568" /> {item.horario}</Text>
           <Text style={styles.detailText}><Feather name="dollar-sign" size={14} color="#38A169" /> R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}</Text>
         </View>
@@ -157,7 +181,6 @@ export default function BuscarCorrida({ navigation }) {
         <Text style={styles.detailText}><Feather name="user" size={14} color="#4A5568" /> Motorista: {item.motoristaNome || 'Desconhecido'}</Text>
         <Text style={styles.statusText}><Feather name="info" size={14} color="#007bff" /> Status: {item.status || 'N/A'}</Text>
 
-        {/* Exibir passageiros já na corrida */}
         {item.passageiros && item.passageiros.length > 0 && (
           <View style={styles.passengersContainer}>
             <Text style={styles.passengersTitle}>
@@ -198,9 +221,24 @@ export default function BuscarCorrida({ navigation }) {
             placeholder="Digite o destino para buscar"
             placeholderTextColor="#A0AEC0"
             value={destinoFiltro}
-            onChangeText={setDestinoFiltro}
+            onChangeText={handleDestinationFilterChange} // <--- Usa a nova função de filtro
+            onFocus={() => setShowDestinationSuggestions(destinoFiltro.length > 0)}
+            onBlur={() => setTimeout(() => setShowDestinationSuggestions(false), 100)}
           />
         </View>
+        {showDestinationSuggestions && filteredDestinationSuggestions.length > 0 && (
+            <View style={styles.suggestionsContainer}>
+              <FlatList
+                data={filteredDestinationSuggestions}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.suggestionItem} onPress={() => selectDestinationFilter(item)}>
+                    <Text style={styles.suggestionText}>{item}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          )}
 
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -263,7 +301,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 15,
-    marginBottom: 20,
+    marginBottom: 20, // Ajustado para dar espaço às sugestões
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -279,6 +317,32 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? 14 : 10,
     fontSize: 16,
     color: '#2D3748',
+  },
+  // Estilos para as sugestões de autocomplete
+  suggestionsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: -15, // Sobrepõe um pouco o input para parecer um dropdown
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
+    maxHeight: 200, // Limita a altura da lista de sugestões
+    zIndex: 1, // Garante que a lista apareça acima de outros elementos
+  },
+  suggestionItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F7FAFC', // Linha divisória suave
+  },
+  suggestionText: {
+    fontSize: 16,
+    color: '#4A5568',
   },
   button: {
     backgroundColor: '#6B46C1',
