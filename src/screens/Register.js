@@ -8,13 +8,14 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  ScrollView, // Adicionado para rolável em telas menores
+  SafeAreaView, // Certifique-se de que está importado de 'react-native' ou 'react-native-safe-area-context'
 } from 'react-native';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase/firebaseConfig';
-import { SafeAreaView } from 'react-native-safe-area-context';
+// Removendo importação de colors, usando valores diretos
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import colors from '../../assets/theme/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -23,7 +24,7 @@ export default function Register({ navigation }) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
-  const [senhaVizivel, setSenhaVizivel] = useState(true);
+  const [senhaVizivel, setSenhaVizivel] = useState(false); // Mudado para falso por padrão para ocultar senha
 
   const toggleSenha = () => setSenhaVizivel(!senhaVizivel);
 
@@ -42,7 +43,7 @@ export default function Register({ navigation }) {
       });
 
       Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
-      navigation.navigate('Home');
+      navigation.navigate('Home'); // Navega para Home após o cadastro
     } catch (error) {
       console.error('Erro ao registrar:', error);
       Alert.alert('Erro', error.message);
@@ -50,184 +51,228 @@ export default function Register({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.box}>
-        <Text style={styles.title}>Bem-vindo(a)!</Text>
-        <Text style={styles.subtitle}>Preencha os campos para se cadastrar</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Crie sua conta!</Text> {/* Título ajustado */}
+            <Text style={styles.subtitle}>Preencha os campos para se cadastrar</Text>
+          </View>
 
-        <View style={styles.inputWrapper}>
-          <FontAwesome name="user" size={18} color={colors.primary} style={styles.inputIcon} />
-          <TextInput
-            placeholder="Nome"
-            style={styles.input}
-            value={nome}
-            onChangeText={setNome}
-          />
-        </View>
+          {/* Campo Nome */}
+          <View style={styles.inputWrapper}>
+            <FontAwesome name="user" size={18} color="#4A5568" style={styles.inputIcon} />
+            <TextInput
+              placeholder="Nome completo" // Placeholder mais descritivo
+              placeholderTextColor="#A0AEC0"
+              style={styles.input}
+              value={nome}
+              onChangeText={setNome}
+            />
+          </View>
 
-        <View style={styles.inputWrapper}>
-          <FontAwesome name="envelope" size={18} color={colors.primary} style={styles.inputIcon} />
-          <TextInput
-            placeholder="E-mail"
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
+          {/* Campo E-mail */}
+          <View style={styles.inputWrapper}>
+            <FontAwesome name="envelope" size={18} color="#4A5568" style={styles.inputIcon} />
+            <TextInput
+              placeholder="E-mail"
+              placeholderTextColor="#A0AEC0"
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
 
-        <View style={styles.inputWrapper}>
-          <FontAwesome name="lock" size={18} color={colors.primary} style={styles.inputIcon} />
-          <TextInput
-            placeholder="Senha"
-            style={styles.input}
-            value={senha}
-            onChangeText={setSenha}
-            secureTextEntry={senhaVizivel}
-          />
-          <Pressable onPress={toggleSenha}>
-            <Ionicons name={senhaVizivel ? 'eye-off' : 'eye'} size={20} color={colors.primary} />
+          {/* Campo Senha */}
+          <View style={styles.inputWrapper}>
+            <FontAwesome name="lock" size={18} color="#4A5568" style={styles.inputIcon} />
+            <TextInput
+              placeholder="Senha"
+              placeholderTextColor="#A0AEC0"
+              style={styles.input}
+              value={senha}
+              onChangeText={setSenha}
+              secureTextEntry={!senhaVizivel}
+            />
+            <Pressable onPress={toggleSenha} style={styles.eyeIcon}>
+              <Ionicons name={senhaVizivel ? 'eye-outline' : 'eye-off-outline'} size={20} color="#4A5568" />
+            </Pressable>
+          </View>
+
+          {/* Campo Confirmar Senha */}
+          <View style={styles.inputWrapper}>
+            <FontAwesome name="lock" size={18} color="#4A5568" style={styles.inputIcon} />
+            <TextInput
+              placeholder="Confirmar senha"
+              placeholderTextColor="#A0AEC0"
+              style={styles.input}
+              value={confirmarSenha}
+              onChangeText={setConfirmarSenha}
+              secureTextEntry={!senhaVizivel} // Usa !senhaVizivel para ocultar/mostrar
+            />
+            <Pressable onPress={toggleSenha} style={styles.eyeIcon}>
+              <Ionicons name={senhaVizivel ? 'eye-outline' : 'eye-off-outline'} size={20} color="#4A5568" />
+            </Pressable>
+          </View>
+
+          {/* Botão Cadastrar */}
+          <Pressable onPress={handleRegister} style={{ width: '100%', marginTop: 20 }}>
+            <LinearGradient colors={['#805AD5', '#6B46C1']} style={styles.button}>
+              <Text style={styles.buttonText}>Cadastrar</Text>
+            </LinearGradient>
           </Pressable>
+
+          {/* Redirecionamento para Login */}
+          <View style={styles.loginRedirect}>
+            <Text style={styles.loginText}>Já tem uma conta?</Text>
+            <Pressable onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.loginLink}>Entrar</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.orText}>ou</Text>
+
+          {/* Botões de Login Social */}
+          <View style={styles.socialIconsContainer}>
+            <TouchableOpacity style={styles.socialButton}>
+              <FontAwesome name="google" size={24} color="#EA4335" />
+            </TouchableOpacity>
+            {/* Outros botões sociais (Apple, Facebook) se precisar implementar */}
+            {/* <TouchableOpacity style={styles.socialButton}>
+              <FontAwesome name="apple" size={24} color="#2D3748" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialButton}>
+              <FontAwesome name="facebook" size={24} color="#3b5998" />
+            </TouchableOpacity> */}
+          </View>
+
+          <Text style={styles.altText}>Cadastre-se com sua conta Google</Text> {/* Texto ajustado */}
         </View>
-
-        <View style={styles.inputWrapper}>
-          <FontAwesome name="lock" size={18} color={colors.primary} style={styles.inputIcon} />
-          <TextInput
-            placeholder="Confirmar senha"
-            style={styles.input}
-            value={confirmarSenha}
-            onChangeText={setConfirmarSenha}
-            secureTextEntry={senhaVizivel}
-          />
-          <Pressable onPress={toggleSenha}>
-            <Ionicons name={senhaVizivel ? 'eye-off' : 'eye'} size={20} color={colors.primary} />
-          </Pressable>
-        </View>
-
-        <Pressable onPress={handleRegister} style={{ width: '100%' }}>
-          <LinearGradient colors={colors.gradientPrimary} style={styles.button}>
-            <Text style={styles.buttonText}>Cadastrar</Text>
-          </LinearGradient>
-        </Pressable>
-
-        <View style={styles.loginRedirect}>
-          <Text style={styles.loginText}>Já tem uma conta?</Text>
-          <Pressable onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.loginLink}>Entrar</Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.orText}>ou</Text>
-
-        <View style={styles.socialIcons}>
-          {['google', 'apple', 'facebook'].map((iconName) => (
-            <View style={styles.socialButton} key={iconName}>
-              <FontAwesome name={iconName} size={20} color="white" />
-            </View>
-          ))}
-        </View>
-
-        <Text style={styles.altText}>Entre de outra forma</Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F7FAFC', // Cor de fundo suave
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 30,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    paddingHorizontal: width * 0.08,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
   },
-  box: {
-    width: '100%',
-    maxWidth: 400,
-    padding: 24,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
+  header: {
+    marginBottom: 40,
     alignItems: 'center',
   },
   title: {
-    fontSize: 26,
-    fontWeight: '600',
-    marginBottom: 6,
-    textAlign: 'center',
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#2D3748',
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.mutedText,
-    marginBottom: 20,
-    textAlign: 'center',
+    fontSize: 16,
+    color: '#4A5568',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
     width: '100%',
-    marginTop: 12,
   },
   inputIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    color: '#333',
+    height: 50,
+    fontSize: 16,
+    color: '#2D3748',
+  },
+  eyeIcon: {
+    padding: 5,
   },
   button: {
-    marginTop: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-    alignItems: 'center',
     width: '100%',
+    height: 55,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#6B46C1',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   buttonText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
   },
   loginRedirect: {
     flexDirection: 'row',
-    marginTop: 20,
+    marginTop: 25,
+    alignItems: 'center',
   },
   loginText: {
-    fontSize: 14,
-    marginRight: 4,
+    fontSize: 15,
+    color: '#4A5568',
+    marginRight: 5,
   },
   loginLink: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '500',
+    fontSize: 15,
+    color: '#805AD5',
+    fontWeight: '700',
   },
   orText: {
-    marginVertical: 12,
-    color: colors.mutedText,
+    fontSize: 15,
+    color: '#4A5568',
+    marginVertical: 25,
+    fontWeight: '500',
   },
-  socialIcons: {
+  socialIconsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 16,
-    marginBottom: 8,
+    width: '100%',
+    marginBottom: 15,
   },
   socialButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 30,
-    padding: 12,
-    marginHorizontal: 6,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 4,
   },
   altText: {
     fontSize: 13,
-    color: colors.mutedText,
+    color: '#4A5568',
+    textAlign: 'center',
   },
 });
