@@ -10,20 +10,16 @@ import {
   TextInput,
 } from 'react-native';
 
-// Importações do Firebase Firestore e Auth
 import { collection, getDocs, getFirestore, query, where, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { app, auth } from '../firebase/firebaseConfig'; // Importe 'auth' também
+import { app, auth } from '../firebase/firebaseConfig';
 
-// Inicializa o Firestore
 const db = getFirestore(app);
 
 export default function BuscarCorrida() {
   const [destinoFiltro, setDestinoFiltro] = useState('');
   const [resultado, setResultado] = useState([]);
 
-  // Função para buscar corridas com base no destino
   async function handleBuscar() {
-    // Verifica se o campo de destino está vazio
     if (!destinoFiltro.trim()) {
       Alert.alert('Erro', 'Por favor, informe o destino para buscar.');
       return;
@@ -31,62 +27,97 @@ export default function BuscarCorrida() {
 
     try {
       const corridasRef = collection(db, 'corridas');
-      // Cria uma query para buscar corridas onde o campo 'destino' é igual ao 'destinoFiltro'
       const q = query(corridasRef, where('destino', '==', destinoFiltro));
       const snapshot = await getDocs(q);
 
-      // Mapeia os documentos do snapshot para o formato desejado
       const corridasEncontradas = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
 
-      // Exibe alerta se nenhuma corrida for encontrada
       if (corridasEncontradas.length === 0) {
         Alert.alert('Nenhuma corrida encontrada', 'Não há corridas disponíveis para este destino.');
       }
 
-      // Atualiza o estado com as corridas filtradas
       setResultado(corridasEncontradas);
 
     } catch (error) {
-      // Captura e exibe erros durante a busca
       Alert.alert('Erro', 'Erro ao buscar corridas. Tente novamente.');
       console.error('Erro ao buscar corridas:', error);
     }
   }
 
-  // Função para aceitar uma corrida
-  async function handleAceitarCorrida(corridaId) {
-    const user = auth.currentUser; // Obtém o usuário autenticado
+  async function handleAceitarCorrida(corrida) { // Recebe o objeto corrida completo
+    const user = auth.currentUser;
 
-    // Verifica se o usuário está logado
     if (!user) {
       Alert.alert('Erro', 'Você precisa estar logado para aceitar uma corrida.');
       return;
     }
 
+    // Verifica se a corrida já está lotada
+    const passageirosAtuais = corrida.passageiros ? corrida.passageiros.length : 0;
+    if (passageirosAtuais >= corrida.lugaresDisponiveis) {
+      Alert.alert('Corrida Lotada', 'Desculpe, esta corrida não tem mais lugares disponíveis.');
+      return;
+    }
+
+    // Verifica se o usuário já é passageiro desta corrida
+    if (corrida.passageiros && corrida.passageiros.includes(user.uid)) {
+      Alert.alert('Atenção', 'Você já aceitou esta corrida.');
+      return;
+    }
+
+    // Verifica se o usuário é o motorista da corrida
+    if (corrida.motorista === user.uid) {
+      Alert.alert('Atenção', 'Você não pode aceitar sua própria corrida como passageiro.');
+      return;
+    }
+
     try {
-      // Cria uma referência para o documento da corrida específica
-      const corridaRef = doc(db, 'corridas', corridaId);
-      
-      // Atualiza o documento adicionando o UID do passageiro ao array 'passageiros'
-      // arrayUnion garante que o UID será adicionado apenas se ainda não existir no array
+      const corridaRef = doc(db, 'corridas', corrida.id);
       await updateDoc(corridaRef, {
         passageiros: arrayUnion(user.uid)
       });
 
       Alert.alert('Sucesso', 'Corrida aceita com sucesso! Você foi adicionado como passageiro.');
-
-      // Opcional: Recarrega a lista de corridas para refletir a mudança
-      // Isso é útil para que o usuário veja o estado atualizado da corrida.
-      handleBuscar(); 
+      // Recarrega a lista para refletir a mudança (lugares disponíveis, botão desabilitado)
+      handleBuscar();
 
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível aceitar a corrida.');
       console.error('Erro ao aceitar corrida:', error);
     }
   }
+
+  const renderCorrida = ({ item }) => {
+    const passageirosAtuais = item.passageiros ? item.passageiros.length : 0;
+    const estaLotada = passageirosAtuais >= item.lugaresDisponiveis;
+
+    return (
+      <View style={styles.corridaItem}>
+        <Text style={styles.corridaText}><Text style={styles.label}>Origem:</Text> {item.origem}</Text>
+        <Text style={styles.corridaText}><Text style={styles.label}>Destino:</Text> {item.destino}</Text>
+        <Text style={styles.corridaText}><Text style={styles.label}>Horário:</Text> {item.horario}</Text>
+        <Text style={styles.corridaText}><Text style={styles.label}>Veículo:</Text> {item.veiculo}</Text>
+        <Text style={styles.corridaText}>
+          <Text style={styles.label}>Lugares:</Text> {passageirosAtuais}/{item.lugaresDisponiveis} {estaLotada && <Text style={styles.lotadaText}>(Lotada)</Text>}
+        </Text>
+        <Text style={styles.corridaText}><Text style={styles.label}>Valor:</Text> R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}</Text>
+
+        {/* Botão Aceitar Corrida */}
+        <TouchableOpacity
+          style={[styles.acceptButton, estaLotada && styles.disabledButton]}
+          onPress={() => handleAceitarCorrida(item)}
+          disabled={estaLotada} // Desabilita o botão se a corrida estiver lotada
+        >
+          <Text style={styles.acceptButtonText}>
+            {estaLotada ? 'Lotada' : 'Aceitar Corrida'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -105,32 +136,16 @@ export default function BuscarCorrida() {
       </TouchableOpacity>
 
       <View style={styles.resultContainer}>
-        {/* Exibe o título "Corridas Disponíveis:" apenas se houver resultados */}
         {resultado.length > 0 && <Text style={styles.resultTitle}>Corridas Disponíveis:</Text>}
 
         <FlatList
           data={resultado}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.corridaItem}>
-              <Text style={styles.corridaText}><Text style={styles.label}>Origem:</Text> {item.origem}</Text>
-              <Text style={styles.corridaText}><Text style={styles.label}>Destino:</Text> {item.destino}</Text>
-              <Text style={styles.corridaText}><Text style={styles.label}>Horário:</Text> {item.horario}</Text>
-              
-              {/* Botão Aceitar Corrida */}
-              <TouchableOpacity
-                style={styles.acceptButton}
-                onPress={() => handleAceitarCorrida(item.id)} // Passa o ID da corrida para a função
-              >
-                <Text style={styles.acceptButtonText}>Aceitar Corrida</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          // Componente a ser renderizado quando a lista estiver vazia
+          renderItem={renderCorrida}
           ListEmptyComponent={() => (
             <Text style={styles.noResultText}>
-              {destinoFiltro.trim() && resultado.length === 0 ? 
-                'Nenhuma corrida encontrada para o destino informado.' : 
+              {destinoFiltro.trim() && resultado.length === 0 ?
+                'Nenhuma corrida encontrada para o destino informado.' :
                 'Digite um destino e clique em "Buscar" para encontrar corridas.'}
             </Text>
           )}
@@ -203,9 +218,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: '#999',
   },
-  // Estilos para o novo botão de aceitar
   acceptButton: {
-    backgroundColor: '#28a745', // Verde para indicar aceitação
+    backgroundColor: '#28a745',
     paddingVertical: 10,
     borderRadius: 8,
     marginTop: 10,
@@ -215,5 +229,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  disabledButton: {
+    backgroundColor: '#cccccc', // Cor para botão desabilitado
+  },
+  lotadaText: {
+    color: 'red',
+    fontWeight: 'bold',
   },
 });

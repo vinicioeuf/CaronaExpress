@@ -6,47 +6,42 @@ import {
   FlatList,
   Pressable,
   SafeAreaView,
-  ActivityIndicator, // Para indicar carregamento
-  Alert, // Para exibir mensagens de erro
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-// Importações do Firebase
-import { db, auth } from '../firebase/firebaseConfig'; // Certifique-se de que 'db' e 'auth' estão exportados corretamente
+import { db, auth } from '../firebase/firebaseConfig';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 export default function MinhasCorridas() {
   const [abaSelecionada, setAbaSelecionada] = useState('Passageiro');
   const [corridasPassageiro, setCorridasPassageiro] = useState([]);
   const [corridasMotorista, setCorridasMotorista] = useState([]);
-  const [loading, setLoading] = useState(true); // Estado de carregamento
-  const [userId, setUserId] = useState(null); // Estado para armazenar o UID do usuário
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
 
-  // Efeito para obter o UID do usuário e carregar as corridas
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(user => {
       if (user) {
         setUserId(user.uid);
-        // Inicia a escuta das corridas somente após o UID estar disponível
         setupFirestoreListeners(user.uid);
       } else {
         setUserId(null);
         setCorridasPassageiro([]);
         setCorridasMotorista([]);
-        setLoading(false); // Não há usuário, então não há carregamento de dados
+        setLoading(false);
         Alert.alert('Erro', 'Você precisa estar logado para ver suas corridas.');
       }
     });
 
-    // Cleanup da inscrição de autenticação
     return () => unsubscribeAuth();
-  }, []); // Executa apenas uma vez ao montar o componente
+  }, []);
 
-  // Função para configurar os listeners do Firestore
   const setupFirestoreListeners = (currentUserId) => {
-    if (!currentUserId) return; // Garante que há um UID
+    if (!currentUserId) return;
 
-    setLoading(true); // Inicia o carregamento
+    setLoading(true);
 
     // Listener para corridas como passageiro
     const qPassageiro = query(
@@ -59,7 +54,7 @@ export default function MinhasCorridas() {
         ...doc.data()
       }));
       setCorridasPassageiro(corridas);
-      setLoading(false); // Termina o carregamento após a primeira busca
+      setLoading(false);
     }, (error) => {
       console.error("Erro ao buscar corridas como passageiro:", error);
       Alert.alert('Erro', 'Não foi possível carregar suas corridas como passageiro.');
@@ -77,47 +72,55 @@ export default function MinhasCorridas() {
         ...doc.data()
       }));
       setCorridasMotorista(corridas);
-      setLoading(false); // Termina o carregamento após a primeira busca
+      setLoading(false);
     }, (error) => {
       console.error("Erro ao buscar corridas como motorista:", error);
       Alert.alert('Erro', 'Não foi possível carregar suas corridas como motorista.');
       setLoading(false);
     });
 
-    // Cleanup das inscrições do Firestore ao desmontar o componente
     return () => {
       unsubscribePassageiro();
       unsubscribeMotorista();
     };
   };
 
-  // Seleciona os dados com base na aba selecionada
   const dados = abaSelecionada === 'Passageiro' ? corridasPassageiro : corridasMotorista;
 
-  // Função para formatar a data
-  const formatarData = (timestamp) => {
-    if (!timestamp) return 'Data Indisponível';
-    const date = timestamp.toDate(); // Converte o Timestamp do Firestore para objeto Date
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-  };
+  const renderCorrida = ({ item }) => {
+    const passageirosAtuais = item.passageiros ? item.passageiros.length : 0;
+    const estaLotada = passageirosAtuais >= item.lugaresDisponiveis;
 
-  const renderCorrida = ({ item }) => (
-    <View style={styles.card}>
-      <Text style={styles.linha}>
-        <Feather name="map-pin" size={16} color="#4F46E5" /> {item.origem} → {item.destino}
-      </Text>
-      <View style={styles.infoRow}>
-        {/* Usando item.horario que já está no formato de string */}
-        <Text style={styles.data}>⏰ {item.horario}</Text> 
-        {/* Se você tiver um campo 'valor' no Firestore, pode exibi-lo aqui */}
-        {/* <Text style={styles.valor}>💸 R$ {item.valor}</Text> */}
+    return (
+      <View style={styles.card}>
+        <Text style={styles.linha}>
+          <Feather name="map-pin" size={16} color="#4F46E5" /> {item.origem} → {item.destino}
+        </Text>
+        <View style={styles.infoRow}>
+          <Text style={styles.data}>⏰ {item.horario}</Text>
+          <Text style={styles.statusText}>Status: {item.status || 'N/A'}</Text>
+        </View>
+        <Text style={styles.detailText}><Text style={styles.label}>Veículo:</Text> {item.veiculo || 'N/A'}</Text>
+        <Text style={styles.detailText}>
+          <Text style={styles.label}>Lugares:</Text> {passageirosAtuais}/{item.lugaresDisponiveis || 'N/A'} {estaLotada && <Text style={styles.lotadaText}>(Lotada)</Text>}
+        </Text>
+        <Text style={styles.detailText}><Text style={styles.label}>Valor:</Text> R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}</Text>
+
+        {/* Exibir passageiros apenas para a aba de motorista */}
+        {abaSelecionada === 'Motorista' && item.passageiros && item.passageiros.length > 0 && (
+          <View style={styles.passengersContainer}>
+            <Text style={styles.passengersTitle}>Passageiros:</Text>
+            {item.passageiros.map((passengerId, index) => (
+              <Text key={index} style={styles.passengerItem}>- {passengerId}</Text>
+            ))}
+          </View>
+        )}
+        {abaSelecionada === 'Motorista' && (!item.passageiros || item.passageiros.length === 0) && (
+          <Text style={styles.noPassengersText}>Nenhum passageiro ainda.</Text>
+        )}
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -174,7 +177,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F6F7FB',
-    padding: 20, // Ajustado para ter um padding mais uniforme
+    padding: 20,
   },
   titulo: {
     fontSize: 22,
@@ -211,7 +214,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     elevation: 2,
-    shadowColor: '#000', // Sombra para iOS
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
@@ -225,7 +228,8 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center', // Alinha verticalmente
+    alignItems: 'center',
+    marginBottom: 4, // Adicionado para espaçamento
   },
   data: {
     fontSize: 14,
@@ -235,6 +239,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4F46E5',
     fontWeight: '600',
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#007bff',
+  },
+  detailText: { // Novo estilo para detalhes adicionais
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  lotadaText: {
+    color: 'red',
+    fontWeight: 'bold',
   },
   loadingContainer: {
     flex: 1,
@@ -252,5 +270,28 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     marginTop: 20,
+  },
+  passengersContainer: { // Estilo para a lista de passageiros
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  passengersTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 5,
+    color: '#4B5563',
+  },
+  passengerItem: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  noPassengersText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: '#999',
+    marginTop: 5,
   },
 });
