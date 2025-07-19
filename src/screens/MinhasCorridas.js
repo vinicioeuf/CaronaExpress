@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,47 +6,104 @@ import {
   FlatList,
   Pressable,
   SafeAreaView,
+  ActivityIndicator, // Para indicar carregamento
+  Alert, // Para exibir mensagens de erro
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
+// Importações do Firebase
+import { db, auth } from '../firebase/firebaseConfig'; // Certifique-se de que 'db' e 'auth' estão exportados corretamente
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+
 export default function MinhasCorridas() {
   const [abaSelecionada, setAbaSelecionada] = useState('Passageiro');
+  const [corridasPassageiro, setCorridasPassageiro] = useState([]);
+  const [corridasMotorista, setCorridasMotorista] = useState([]);
+  const [loading, setLoading] = useState(true); // Estado de carregamento
+  const [userId, setUserId] = useState(null); // Estado para armazenar o UID do usuário
 
-  const corridasPassageiro = [
-    {
-      id: '1',
-      origem: 'Recife - PE',
-      destino: 'Caruaru - PE',
-      valor: 45,
-      data: '01 de junho de 2030',
-    },
-    {
-      id: '2',
-      origem: 'Terra Nova - PE',
-      destino: 'Salgueiro - PE',
-      valor: 30,
-      data: '05 de junho de 2030',
-    },
-  ];
+  // Efeito para obter o UID do usuário e carregar as corridas
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged(user => {
+      if (user) {
+        setUserId(user.uid);
+        // Inicia a escuta das corridas somente após o UID estar disponível
+        setupFirestoreListeners(user.uid);
+      } else {
+        setUserId(null);
+        setCorridasPassageiro([]);
+        setCorridasMotorista([]);
+        setLoading(false); // Não há usuário, então não há carregamento de dados
+        Alert.alert('Erro', 'Você precisa estar logado para ver suas corridas.');
+      }
+    });
 
-  const corridasMotorista = [
-    {
-      id: '3',
-      origem: 'Petrolina - PE',
-      destino: 'Juazeiro - BA',
-      valor: 20,
-      data: '03 de maio de 2030',
-    },
-    {
-      id: '4',
-      origem: 'Olinda - PE',
-      destino: 'Paulista - PE',
-      valor: 15,
-      data: '12 de abril de 2030',
-    },
-  ];
+    // Cleanup da inscrição de autenticação
+    return () => unsubscribeAuth();
+  }, []); // Executa apenas uma vez ao montar o componente
 
+  // Função para configurar os listeners do Firestore
+  const setupFirestoreListeners = (currentUserId) => {
+    if (!currentUserId) return; // Garante que há um UID
+
+    setLoading(true); // Inicia o carregamento
+
+    // Listener para corridas como passageiro
+    const qPassageiro = query(
+      collection(db, 'corridas'),
+      where('passageiros', 'array-contains', currentUserId)
+    );
+    const unsubscribePassageiro = onSnapshot(qPassageiro, (snapshot) => {
+      const corridas = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setCorridasPassageiro(corridas);
+      setLoading(false); // Termina o carregamento após a primeira busca
+    }, (error) => {
+      console.error("Erro ao buscar corridas como passageiro:", error);
+      Alert.alert('Erro', 'Não foi possível carregar suas corridas como passageiro.');
+      setLoading(false);
+    });
+
+    // Listener para corridas como motorista
+    const qMotorista = query(
+      collection(db, 'corridas'),
+      where('motorista', '==', currentUserId)
+    );
+    const unsubscribeMotorista = onSnapshot(qMotorista, (snapshot) => {
+      const corridas = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setCorridasMotorista(corridas);
+      setLoading(false); // Termina o carregamento após a primeira busca
+    }, (error) => {
+      console.error("Erro ao buscar corridas como motorista:", error);
+      Alert.alert('Erro', 'Não foi possível carregar suas corridas como motorista.');
+      setLoading(false);
+    });
+
+    // Cleanup das inscrições do Firestore ao desmontar o componente
+    return () => {
+      unsubscribePassageiro();
+      unsubscribeMotorista();
+    };
+  };
+
+  // Seleciona os dados com base na aba selecionada
   const dados = abaSelecionada === 'Passageiro' ? corridasPassageiro : corridasMotorista;
+
+  // Função para formatar a data
+  const formatarData = (timestamp) => {
+    if (!timestamp) return 'Data Indisponível';
+    const date = timestamp.toDate(); // Converte o Timestamp do Firestore para objeto Date
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
 
   const renderCorrida = ({ item }) => (
     <View style={styles.card}>
@@ -54,8 +111,10 @@ export default function MinhasCorridas() {
         <Feather name="map-pin" size={16} color="#4F46E5" /> {item.origem} → {item.destino}
       </Text>
       <View style={styles.infoRow}>
-        <Text style={styles.data}>📅 {item.data}</Text>
-        <Text style={styles.valor}>💸 R$ {item.valor}</Text>
+        {/* Usando item.horario que já está no formato de string */}
+        <Text style={styles.data}>⏰ {item.horario}</Text> 
+        {/* Se você tiver um campo 'valor' no Firestore, pode exibi-lo aqui */}
+        {/* <Text style={styles.valor}>💸 R$ {item.valor}</Text> */}
       </View>
     </View>
   );
@@ -86,13 +145,27 @@ export default function MinhasCorridas() {
         ))}
       </View>
 
-      <FlatList
-        data={dados}
-        keyExtractor={(item) => item.id}
-        renderItem={renderCorrida}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        style={{ marginTop: 10 }}
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+          <Text style={styles.loadingText}>Carregando corridas...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={dados}
+          keyExtractor={(item) => item.id}
+          renderItem={renderCorrida}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          style={{ marginTop: 10 }}
+          ListEmptyComponent={() => (
+            <Text style={styles.noCorridasText}>
+              {abaSelecionada === 'Passageiro'
+                ? 'Você não aceitou nenhuma corrida ainda.'
+                : 'Você não ofereceu nenhuma corrida ainda.'}
+            </Text>
+          )}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -101,7 +174,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F6F7FB',
-    padding: 50,
+    padding: 20, // Ajustado para ter um padding mais uniforme
   },
   titulo: {
     fontSize: 22,
@@ -138,6 +211,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     elevation: 2,
+    shadowColor: '#000', // Sombra para iOS
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   linha: {
     fontSize: 16,
@@ -148,6 +225,7 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center', // Alinha verticalmente
   },
   data: {
     fontSize: 14,
@@ -157,5 +235,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4F46E5',
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#555',
+  },
+  noCorridasText: {
+    fontSize: 16,
+    fontStyle: 'italic',
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
