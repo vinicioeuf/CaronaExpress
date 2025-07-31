@@ -10,27 +10,29 @@ import {
   ScrollView,
   TextInput,
   Platform,
-  // Removido Modal e Pressable daqui, pois não serão mais usados para QR Code
+  Modal,
+  Pressable,
   ActivityIndicator,
 } from 'react-native';
 import { Feather, FontAwesome, Ionicons } from '@expo/vector-icons';
+import QRCode from 'react-native-qrcode-svg';
 
 import { auth, db } from '../firebase/firebaseConfig';
 import { doc, getDoc, updateDoc, onSnapshot, runTransaction } from 'firebase/firestore';
+import pixService from '../services/pixService';
 
 export default function Saldo() {
   const [userData, setUserData] = useState(null);
   const [depositoValor, setDepositoValor] = useState('');
   const [saqueValor, setSaqueValor] = useState('');
   const [loading, setLoading] = useState(true);
-  // Removido estados relacionados ao QR Code Pix
-  // const [qrCodeModalVisible, setQrCodeModalVisible] = useState(false);
-  // const [pixQrCodeBase64, setPixQrCodeBase64] = useState('');
-  // const [pixCopiaCola, setPixCopiaCola] = useState('');
-
-  // Removido chaves do Mercado Pago
-  // const MERCADO_PAGO_PUBLIC_KEY = "TEST-e616f733-4f05-4c07-8898-d14d2a9d20c5";
-  // const MERCADO_PAGO_ACCESS_TOKEN = "YOUR_MERCADO_PAGO_ACCESS_TOKEN";
+  const [pixLoading, setPixLoading] = useState(false);
+  const [qrCodeModalVisible, setQrCodeModalVisible] = useState(false);
+  const [pixQrCodeData, setPixQrCodeData] = useState('');
+  const [pixCopiaCola, setPixCopiaCola] = useState('');
+  const [currentPaymentId, setCurrentPaymentId] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState('');
+  const [isMonitoring, setIsMonitoring] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(user => {
@@ -65,6 +67,160 @@ export default function Saldo() {
     return () => unsubscribeAuth();
   }, []);
 
+  // Limpar monitoramento quando componente for desmontado
+  useEffect(() => {
+    return () => {
+      pixService.stopPaymentMonitoring();
+    };
+  }, []);
+
+  // Função para gerar pagamento PIX
+  const handleGerarPix = async () => {
+    const validation = pixService.validatePaymentAmount(depositoValor);
+    
+    if (!validation.valid) {
+      Alert.alert('Erro', validation.error);
+      return;
+    }
+
+    setPixLoading(true);
+    try {
+      const paymentResult = await pixService.generatePixPayment(
+        validation.amount, 
+        `Depósito CaronaExpress - ${userData?.displayName || 'Usuário'}`
+      );
+      
+      if (paymentResult.success) {
+        setPixQrCodeData(paymentResult.qrCode || '');
+        setPixCopiaCola(paymentResult.pixCopyPaste || '');
+        setCurrentPaymentId(paymentResult.paymentId);
+        setQrCodeModalVisible(true);
+        setPaymentStatus('Aguardando pagamento...');
+        
+        // Iniciar monitoramento automático
+        startPaymentMonitoring(paymentResult.paymentId);
+      } else {
+        Alert.alert('Erro', paymentResult.error || 'Não foi possível gerar o QR Code PIX. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao gerar PIX:', error);
+      Alert.alert('Erro', 'Erro ao gerar pagamento PIX. Tente novamente.');
+    } finally {
+      setPixLoading(false);
+    }
+  };
+
+  // Iniciar monitoramento do pagamento
+  const startPaymentMonitoring = (paymentId) => {
+    setIsMonitoring(true);
+    
+    pixService.startPaymentMonitoring(
+      paymentId,
+      (status, statusDetail) => {
+        setPaymentStatus(`Status: ${status} - ${statusDetail}`);
+      },
+      (result, data) => {
+        if (result === 'approved') {
+          Alert.alert(
+            'Pagamento Confirmado!', 
+            `Depósito de R$ ${data.depositedAmount.toFixed(2).replace('.', ',')} realizado com sucesso!`,
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  setQrCodeModalVisible(false);
+                  setDepositoValor('');
+                  setPaymentStatus('');
+                  setCurrentPaymentId(null);
+                  setIsMonitoring(false);
+                  pixService.clearCurrentPayment();
+                }
+              }
+            ]
+          );
+        } else if (result === 'rejected') {
+          Alert.alert(
+            'Pagamento Rejeitado', 
+            'O pagamento foi rejeitado. Tente novamente.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  setQrCodeModalVisible(false);
+                  setPaymentStatus('');
+                  setCurrentPaymentId(null);
+                  setIsMonitoring(false);
+                  pixService.clearCurrentPayment();
+                }
+              }
+            ]
+          );
+        } else if (result === 'error') {
+          Alert.alert('Erro', data || 'Erro ao processar pagamento.');
+        }
+      }
+    );
+  };
+
+  // Função para verificar status do pagamento manualmente
+  const checkPayment = async () => {
+    if (!currentPaymentId) return;
+
+    try {
+      const statusResult = await pixService.checkPaymentStatus(currentPaymentId);
+      if (statusResult.success) {
+        setPaymentStatus(`Status: ${statusResult.status} - ${statusResult.statusDetail}`);
+        
+        if (statusResult.status === 'approved') {
+          const processResult = await pixService.processApprovedPayment(currentPaymentId, statusResult.amount);
+          
+          if (processResult.success) {
+            Alert.alert(
+              'Sucesso', 
+              `Depósito de R$ ${processResult.depositedAmount.toFixed(2).replace('.', ',')} confirmado!`,
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    setQrCodeModalVisible(false);
+                    setDepositoValor('');
+                    setPaymentStatus('');
+                    setCurrentPaymentId(null);
+                    setIsMonitoring(false);
+                    pixService.clearCurrentPayment();
+                  }
+                }
+              ]
+            );
+          } else {
+            Alert.alert('Erro', processResult.error || 'Erro ao processar pagamento.');
+          }
+        } else if (statusResult.status === 'pending') {
+          setPaymentStatus('Pagamento pendente...');
+        } else if (statusResult.status === 'rejected') {
+          Alert.alert('Pagamento Rejeitado', 'O pagamento foi rejeitado. Tente novamente.');
+          setQrCodeModalVisible(false);
+          setPaymentStatus('');
+          setCurrentPaymentId(null);
+          setIsMonitoring(false);
+          pixService.clearCurrentPayment();
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao verificar pagamento:', error);
+      Alert.alert('Erro', 'Erro ao verificar status do pagamento.');
+    }
+  };
+
+  // Fechar modal e limpar dados
+  const handleCloseModal = () => {
+    setQrCodeModalVisible(false);
+    setPaymentStatus('');
+    setCurrentPaymentId(null);
+    setIsMonitoring(false);
+    pixService.clearCurrentPayment();
+  };
+
   const handleDepositar = async () => {
     const valor = parseFloat(depositoValor.replace(',', '.'));
     if (isNaN(valor) || valor <= 0) {
@@ -72,7 +228,7 @@ export default function Saldo() {
       return;
     }
 
-    if (!userData || !auth.currentUser) { // Verifica se userData e auth.currentUser estão disponíveis
+    if (!userData || !auth.currentUser) {
         Alert.alert('Erro', 'Dados do usuário incompletos ou não autenticado para depósito.');
         return;
     }
@@ -81,10 +237,10 @@ export default function Saldo() {
     try {
         const userDocRef = doc(db, 'users', auth.currentUser.uid);
         await updateDoc(userDocRef, {
-            balance: (userData.balance || 0) + valor // Garante que balance seja um número
+            balance: (userData.balance || 0) + valor
         });
         Alert.alert('Sucesso', `Depósito de R$ ${valor.toFixed(2).replace('.', ',')} realizado com sucesso!`);
-        setDepositoValor(''); // Limpa o campo
+        setDepositoValor('');
     } catch (firestoreError) {
         console.error("Erro ao realizar depósito no Firestore:", firestoreError);
         Alert.alert("Erro", "Não foi possível realizar o depósito. Tente novamente.");
@@ -99,7 +255,7 @@ export default function Saldo() {
       Alert.alert('Erro', 'Por favor, insira um valor de saque válido.');
       return;
     }
-    if (!userData || (userData.balance || 0) < valor) { // Garante que balance seja um número
+    if (!userData || (userData.balance || 0) < valor) {
       Alert.alert('Erro', 'Saldo insuficiente para realizar o saque.');
       return;
     }
@@ -161,7 +317,7 @@ export default function Saldo() {
 
           {/* Seção de Depósito */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Depositar</Text> {/* Título ajustado */}
+            <Text style={styles.cardTitle}>Depositar</Text>
             <View style={styles.inputWrapper}>
               <FontAwesome name="money" size={20} color="#38A169" style={styles.inputIcon} />
               <TextInput
@@ -173,14 +329,32 @@ export default function Saldo() {
                 onChangeText={setDepositoValor}
               />
             </View>
-            <TouchableOpacity style={[styles.button, styles.depositButton]} onPress={handleDepositar}>
-              <Text style={styles.buttonText}>Depositar</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity 
+                style={[styles.button, styles.depositButton]} 
+                onPress={handleDepositar}
+                disabled={pixLoading}
+              >
+                <Text style={styles.buttonText}>Depositar Direto</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.button, styles.pixButton]} 
+                onPress={handleGerarPix}
+                disabled={pixLoading}
+              >
+                {pixLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Gerar PIX</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Seção de Saque */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Sacar</Text> {/* Título ajustado */}
+            <Text style={styles.cardTitle}>Sacar</Text>
             <View style={styles.inputWrapper}>
               <FontAwesome name="bank" size={20} color="#E53E3E" style={styles.inputIcon} />
               <TextInput
@@ -200,35 +374,62 @@ export default function Saldo() {
         </View>
       </ScrollView>
 
-      {/* Removido o Modal de QR Code */}
-      {/* <Modal
+      {/* Modal do QR Code PIX */}
+      <Modal
         animationType="fade"
         transparent={true}
         visible={qrCodeModalVisible}
-        onRequestClose={() => setQrCodeModalVisible(false)}
+        onRequestClose={handleCloseModal}
       >
-        <Pressable style={styles.qrModalOverlay} onPress={() => setQrCodeModalVisible(false)}>
+        <Pressable style={styles.qrModalOverlay} onPress={handleCloseModal}>
           <View style={styles.qrModalContent}>
-            <Pressable style={styles.qrModalCloseButton} onPress={() => setQrCodeModalVisible(false)}>
+            <Pressable style={styles.qrModalCloseButton} onPress={handleCloseModal}>
               <Ionicons name="close-circle-outline" size={30} color="#4A5568" />
             </Pressable>
-            <Text style={styles.qrModalTitle}>Escaneie para Depositar</Text>
-            {pixQrCodeBase64 ? (
-              <Image
-                source={{ uri: `data:image/png;base64,${pixQrCodeBase64}` }}
-                style={styles.qrCodeImage}
-              />
+            <Text style={styles.qrModalTitle}>Pagamento PIX</Text>
+            <Text style={styles.qrModalSubtitle}>Escaneie o QR Code para pagar</Text>
+            
+            {pixQrCodeData ? (
+              <View style={styles.qrCodeContainer}>
+                <QRCode
+                  value={pixQrCodeData}
+                  size={200}
+                  color="#000000"
+                  backgroundColor="#FFFFFF"
+                />
+              </View>
             ) : (
-              <Text style={styles.qrModalText}>Gerando QR Code...</Text>
+              <View style={styles.qrCodePlaceholder}>
+                <ActivityIndicator size="large" color="#6B46C1" />
+                <Text style={styles.qrModalText}>Gerando QR Code...</Text>
+              </View>
             )}
-            <Text style={styles.qrModalSubtitle}>Ou copie e cole o código:</Text>
+            
+            <Text style={styles.paymentStatus}>{paymentStatus}</Text>
+            
+            {isMonitoring && (
+              <View style={styles.monitoringIndicator}>
+                <ActivityIndicator size="small" color="#6B46C1" />
+                <Text style={styles.monitoringText}>Monitorando pagamento...</Text>
+              </View>
+            )}
+            
+            <Text style={styles.qrModalSubtitle}>Ou copie e cole o código PIX:</Text>
             <Text selectable={true} style={styles.pixCopiaColaText}>{pixCopiaCola}</Text>
+            
+            <TouchableOpacity 
+              style={[styles.button, styles.checkPaymentButton]} 
+              onPress={checkPayment}
+            >
+              <Text style={styles.buttonText}>Verificar Pagamento</Text>
+            </TouchableOpacity>
+            
             <Text style={styles.qrModalWarning}>
-              * Em um app real, o saldo só seria atualizado após a confirmação do pagamento pelo Mercado Pago (via webhook para um backend).
+              * O saldo será atualizado automaticamente após a confirmação do pagamento.
             </Text>
           </View>
         </Pressable>
-      </Modal> */}
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -331,7 +532,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2D3748',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
   button: {
+    flex: 1,
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -346,10 +553,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#38A169',
     shadowColor: '#38A169',
   },
+  pixButton: {
+    backgroundColor: '#6B46C1',
+    shadowColor: '#6B46C1',
+  },
   withdrawButton: {
     backgroundColor: '#E53E3E',
     shadowColor: '#E53E3E',
     marginTop: 10,
+  },
+  checkPaymentButton: {
+    backgroundColor: '#3182CE',
+    shadowColor: '#3182CE',
+    marginTop: 15,
   },
   buttonText: {
     color: '#fff',
@@ -367,7 +583,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#555',
   },
-  // Estilos do Modal QR Code removidos, mas mantidos aqui para referência se precisar reintroduzir
   qrModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -398,23 +613,60 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: '#2D3748',
-    marginBottom: 15,
+    marginBottom: 5,
     textAlign: 'center',
-  },
-  qrCodeImage: {
-    width: 200,
-    height: 200,
-    resizeMode: 'contain',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   qrModalSubtitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#4A5568',
-    marginBottom: 10,
+    marginBottom: 15,
     textAlign: 'center',
+  },
+  qrCodeContainer: {
+    width: 200,
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+  },
+  qrCodePlaceholder: {
+    width: 200,
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  qrModalText: {
+    fontSize: 15,
+    color: '#4A5568',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  paymentStatus: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B46C1',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  monitoringIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+  },
+  monitoringText: {
+    fontSize: 14,
+    color: '#6B46C1',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   pixCopiaColaText: {
     fontSize: 14,
@@ -427,12 +679,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#CBD5E0',
-  },
-  qrModalText: {
-    fontSize: 15,
-    color: '#4A5568',
-    textAlign: 'center',
-    marginBottom: 15,
   },
   qrModalWarning: {
     fontSize: 12,
