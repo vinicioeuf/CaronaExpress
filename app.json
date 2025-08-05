@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "sdkVersion": "51.0.0",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,11 +17,14 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.caronaexpress.app",
+      "googleServicesFile": "./firebase/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.caronaexpress.app"
+      "compileSdkVersion": 36,
+      "targetSdkVersion": 36
     },
     "web": {
       "favicon": "./assets/favicon.png"
