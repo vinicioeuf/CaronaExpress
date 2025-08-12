@@ -1,18 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, ScrollView, SafeAreaView, FlatList } from 'react-native';
 import { db, auth } from '../firebase/firebaseConfig';
 import { collection, addDoc } from 'firebase/firestore';
 import { Feather } from '@expo/vector-icons';
-import SALGUEIRO_LOCATIONS from '../componets/salgueiroLocations.json'; // Importar o JSON
+import SALGUEIRO_LOCATIONS from '../componets/salgueiroLocations.json'; // Importar o novo JSON
 
 export default function OferecerCorrida({ navigation }) {
+  // Estados para os nomes das localizações e os objetos completos com coordenadas
   const [origem, setOrigem] = useState('');
   const [destino, setDestino] = useState('');
+  const [origemLocation, setOrigemLocation] = useState(null);
+  const [destinoLocation, setDestinoLocation] = useState(null);
+
+  // Novos estados para a distância e para os inputs formatados
+  const [distancia, setDistancia] = useState(null);
+  const [data, setData] = useState('');
   const [horario, setHorario] = useState('');
-  const [data, setData] = useState(''); // <--- NOVO ESTADO: para a data
+  const [valor, setValor] = useState('');
+
+  // Outros estados do formulário
   const [veiculo, setVeiculo] = useState('');
   const [lugaresDisponiveis, setLugaresDisponiveis] = useState('');
-  const [valor, setValor] = useState('');
 
   // Estados para as sugestões de autocomplete
   const [filteredOriginSuggestions, setFilteredOriginSuggestions] = useState([]);
@@ -20,23 +28,68 @@ export default function OferecerCorrida({ navigation }) {
   const [filteredDestinationSuggestions, setFilteredDestinationSuggestions] = useState([]);
   const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
 
+  /**
+   * Função para calcular a distância entre dois pontos (coordenadas x, y).
+   * @param {object} loc1 - O primeiro objeto de localização com 'x' e 'y'.
+   * @param {object} loc2 - O segundo objeto de localização com 'x' e 'y'.
+   * @returns {number} A distância calculada em km.
+   */
+  const calculateDistance = (loc1, loc2) => {
+    // Usando o teorema de Pitágoras para calcular a distância euclidiana
+    const deltaX = loc2.x - loc1.x;
+    const deltaY = loc2.y - loc1.y;
+    const distanceInArbitraryUnits = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // Converte unidades arbitrárias para KM. Este é um valor simulado.
+    const kmPerUnit = 0.05; // 1 unidade no mapa imaginário = 0.05 km
+    return (distanceInArbitraryUnits * kmPerUnit);
+  };
+
+  // Efeito para calcular a distância sempre que origem e destino forem selecionados
+  useEffect(() => {
+    if (origemLocation && destinoLocation) {
+      const calculatedDistance = calculateDistance(origemLocation, destinoLocation);
+      setDistancia(calculatedDistance);
+    } else {
+      setDistancia(null);
+    }
+  }, [origemLocation, destinoLocation]);
+
+  // NOVO EFEITO: Calcula o valor da corrida com base na distância
+  useEffect(() => {
+    if (distancia !== null) {
+      const GASOLINE_PRICE_PER_LITER = 6.85; // Valor da gasolina em R$
+      const CAR_EFFICIENCY_KM_PER_L = 10; // Consumo médio do carro (10 km/L)
+      const PROFIT_MARGIN = 1.2; // Adiciona 20% de margem
+
+      // Calcula o custo total e adiciona a margem de lucro
+      const totalCost = (distancia / CAR_EFFICIENCY_KM_PER_L) * GASOLINE_PRICE_PER_LITER * PROFIT_MARGIN;
+      
+      // Formata o valor para 2 casas decimais e substitui '.' por ',' para o formato BRL
+      const formattedValue = totalCost.toFixed(2).replace('.', ',');
+      setValor(formattedValue);
+    }
+  }, [distancia]);
+
   // Função de filtro para Origem
   const handleOriginChange = (text) => {
     setOrigem(text);
     if (text.length > 0) {
       const filtered = SALGUEIRO_LOCATIONS.filter(location =>
-        location.toLowerCase().includes(text.toLowerCase())
+        location.nome.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredOriginSuggestions(filtered);
       setShowOriginSuggestions(true);
     } else {
       setShowOriginSuggestions(false);
+      setOrigemLocation(null);
     }
   };
 
   // Função de seleção para Origem
   const selectOrigin = (location) => {
-    setOrigem(location);
+    setOrigem(location.nome);
+    setOrigemLocation(location);
     setShowOriginSuggestions(false);
   };
 
@@ -45,35 +98,63 @@ export default function OferecerCorrida({ navigation }) {
     setDestino(text);
     if (text.length > 0) {
       const filtered = SALGUEIRO_LOCATIONS.filter(location =>
-        location.toLowerCase().includes(text.toLowerCase())
+        location.nome.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredDestinationSuggestions(filtered);
       setShowDestinationSuggestions(true);
     } else {
       setShowDestinationSuggestions(false);
+      setDestinoLocation(null);
     }
   };
 
   // Função de seleção para Destino
   const selectDestination = (location) => {
-    setDestino(location);
+    setDestino(location.nome);
+    setDestinoLocation(location);
     setShowDestinationSuggestions(false);
   };
 
+  // Lógica para formatar o valor como moeda (R$)
+  const handleValorChange = (text) => {
+    let cleanedText = text.replace(/[^0-9,]/g, '');
+    const parts = cleanedText.split(',');
+
+    if (parts.length > 2) {
+      cleanedText = `${parts[0]},${parts.slice(1).join('')}`;
+    }
+
+    if (cleanedText.includes(',')) {
+      setValor(cleanedText);
+    } else {
+      setValor(cleanedText);
+    }
+  };
+
+  // Lógica para formatar a data como DD/MM/AAAA
+  const handleDataChange = (text) => {
+    let cleanedText = text.replace(/[^0-9]/g, '');
+    if (cleanedText.length > 8) {
+      cleanedText = cleanedText.substring(0, 8);
+    }
+    
+    if (cleanedText.length >= 2) {
+      cleanedText = cleanedText.substring(0, 2) + '/' + cleanedText.substring(2);
+    }
+    if (cleanedText.length >= 5) {
+      cleanedText = cleanedText.substring(0, 5) + '/' + cleanedText.substring(5);
+    }
+    setData(cleanedText);
+  };
+
   async function handleEnviar() {
-    // Adicionada validação para o campo 'data'
     if (!origem || !destino || !horario || !data || !veiculo || !lugaresDisponiveis || !valor) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
       return;
     }
 
-    // Validação para garantir que origem e destino estão na lista
-    if (!SALGUEIRO_LOCATIONS.includes(origem)) {
-      Alert.alert('Erro', 'Por favor, selecione uma Origem válida da lista de sugestões.');
-      return;
-    }
-    if (!SALGUEIRO_LOCATIONS.includes(destino)) {
-      Alert.alert('Erro', 'Por favor, selecione um Destino válido da lista de sugestões.');
+    if (!origemLocation || !destinoLocation) {
+      Alert.alert('Erro', 'Por favor, selecione uma Origem e um Destino válidos da lista de sugestões.');
       return;
     }
 
@@ -100,10 +181,11 @@ export default function OferecerCorrida({ navigation }) {
       const motoristaNome = user.displayName || 'Motorista Desconhecido';
 
       await addDoc(collection(db, 'corridas'), {
-        origem,
-        destino,
+        origem: origemLocation.nome,
+        destino: destinoLocation.nome,
+        distancia: distancia.toFixed(1),
         horario,
-        data, // <--- NOVO CAMPO: Adicionando a data
+        data,
         veiculo,
         lugaresDisponiveis: parsedLugares,
         valor: parsedValor,
@@ -116,11 +198,13 @@ export default function OferecerCorrida({ navigation }) {
       });
 
       Alert.alert('Sucesso', 'Corrida cadastrada com sucesso!');
-      // Limpa os campos após o cadastro
       setOrigem('');
       setDestino('');
+      setOrigemLocation(null);
+      setDestinoLocation(null);
+      setDistancia(null);
       setHorario('');
-      setData(''); // <--- Limpa o campo de data
+      setData('');
       setVeiculo('');
       setLugaresDisponiveis('');
       setValor('');
@@ -159,10 +243,10 @@ export default function OferecerCorrida({ navigation }) {
             <View style={styles.suggestionsContainer}>
               <FlatList
                 data={filteredOriginSuggestions}
-                keyExtractor={(item) => item}
+                keyExtractor={(item) => item.nome}
                 renderItem={({ item }) => (
                   <TouchableOpacity style={styles.suggestionItem} onPress={() => selectOrigin(item)}>
-                    <Text style={styles.suggestionText}>{item}</Text>
+                    <Text style={styles.suggestionText}>{item.nome}</Text>
                   </TouchableOpacity>
                 )}
               />
@@ -187,18 +271,26 @@ export default function OferecerCorrida({ navigation }) {
             <View style={styles.suggestionsContainer}>
               <FlatList
                 data={filteredDestinationSuggestions}
-                keyExtractor={(item) => item}
+                keyExtractor={(item) => item.nome}
                 renderItem={({ item }) => (
                   <TouchableOpacity style={styles.suggestionItem} onPress={() => selectDestination(item)}>
-                    <Text style={styles.suggestionText}>{item}</Text>
+                    <Text style={styles.suggestionText}>{item.nome}</Text>
                   </TouchableOpacity>
                 )}
               />
             </View>
           )}
+          
+          {/* Exibe a distância calculada */}
+          {distancia !== null && (
+            <View style={styles.distanceContainer}>
+              <Feather name="trending-up" size={18} color="#4A5568" />
+              <Text style={styles.distanceText}>Distância calculada: {distancia.toFixed(1)} km</Text>
+            </View>
+          )}
 
           {/* Campo Data */}
-          <Text style={styles.label}>Data da Corrida</Text> {/* <--- NOVO CAMPO */}
+          <Text style={styles.label}>Data da Corrida</Text>
           <View style={styles.inputContainer}>
             <Feather name="calendar" size={20} color="#805AD5" style={styles.icon} />
             <TextInput
@@ -206,8 +298,8 @@ export default function OferecerCorrida({ navigation }) {
               placeholder="Ex: DD/MM/AAAA"
               placeholderTextColor="#A0AEC0"
               value={data}
-              onChangeText={setData}
-              keyboardType="numeric" // Sugere teclado numérico
+              onChangeText={handleDataChange}
+              keyboardType="numeric"
             />
           </View>
 
@@ -250,15 +342,16 @@ export default function OferecerCorrida({ navigation }) {
             />
           </View>
 
+          {/* Campo Valor */}
           <Text style={styles.label}>Valor por Passageiro (R$)</Text>
           <View style={styles.inputContainer}>
             <Feather name="dollar-sign" size={20} color="#805AD5" style={styles.icon} />
             <TextInput
               style={styles.input}
-              placeholder="Ex: 25.50"
+              placeholder="Ex: 25,50"
               placeholderTextColor="#A0AEC0"
               value={valor}
-              onChangeText={setValor}
+              onChangeText={handleValorChange}
               keyboardType="numeric"
             />
           </View>
@@ -349,6 +442,22 @@ const styles = StyleSheet.create({
   suggestionText: {
     fontSize: 16,
     color: '#4A5568',
+  },
+  distanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#E6FFFA', // Cor de fundo suave para a distância
+    borderRadius: 12,
+    borderColor: '#B2F5EA',
+    borderWidth: 1,
+  },
+  distanceText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#2C5282',
+    fontWeight: '600',
   },
   button: {
     backgroundColor: '#6B46C1',
