@@ -99,8 +99,8 @@ export default function MinhasCorridas() {
           <Text style={styles.detailText}>
             <Feather name="clock" size={14} color="#4A5568" /> {item.horario}
           </Text>
-          <Text style={styles.statusText}>
-            <Feather name="info" size={14} color="#007bff" /> Status: {item.status || 'N/A'}
+          <Text style={styles.detailText}>
+            <Feather name="calendar" size={14} color="#4A5568" /> {item.data}
           </Text>
         </View>
         <Text style={styles.detailText}>
@@ -110,9 +110,14 @@ export default function MinhasCorridas() {
           <Feather name="users" size={14} color="#4A5568" /> Lugares: {passageirosAtuais}/{item.lugaresDisponiveis || 'N/A'}
           {estaLotada && <Text style={styles.lotadaText}> (Lotada)</Text>}
         </Text>
-        <Text style={styles.detailText}>
-          <Feather name="dollar-sign" size={14} color="#38A169" /> Valor: R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}
-        </Text>
+        <View style={styles.infoRow}>
+          <Text style={styles.detailText}>
+            <Feather name="dollar-sign" size={14} color="#38A169" /> Valor: R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}
+          </Text>
+          <Text style={styles.detailText}>
+            <Feather name="trending-up" size={14} color="#4A5568" /> Distância: {item.distancia || 'N/A'} km
+          </Text>
+        </View>
 
         {/* Exibir nome do motorista para passageiros */}
         {abaSelecionada === 'Passageiro' && (

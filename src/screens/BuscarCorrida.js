@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,25 @@ import {
   TextInput,
   SafeAreaView,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 
 import { collection, getFirestore, query, where, onSnapshot, doc, updateDoc, arrayUnion, runTransaction } from 'firebase/firestore';
 import { app, auth, db } from '../firebase/firebaseConfig';
 import { Feather } from '@expo/vector-icons';
-import SALGUEIRO_LOCATIONS from '../componets/salgueiroLocations.json'; // Importar o JSON
+import SALGUEIRO_LOCATIONS from '../componets/salgueiroLocations.json';
 
 export default function BuscarCorrida({ navigation }) {
+  // Filtros de pesquisa
   const [destinoFiltro, setDestinoFiltro] = useState('');
+  const [dataFiltro, setDataFiltro] = useState('');
+  const [horarioFiltro, setHorarioFiltro] = useState('');
+  const [valorMinFiltro, setValorMinFiltro] = useState('');
+  const [valorMaxFiltro, setValorMaxFiltro] = useState('');
+  const [distanciaMinFiltro, setDistanciaMinFiltro] = useState('');
+  const [distanciaMaxFiltro, setDistanciaMaxFiltro] = useState('');
+
+  // Dados das corridas
   const [allCorridas, setAllCorridas] = useState([]);
   const [filteredCorridas, setFilteredCorridas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,26 +37,26 @@ export default function BuscarCorrida({ navigation }) {
   const [filteredDestinationSuggestions, setFilteredDestinationSuggestions] = useState([]);
   const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
 
-  // Função de filtro para Destino
-  const handleDestinationFilterChange = (text) => {
+  // Lógica de filtro e autocomplete para o destino (memorizada com useCallback)
+  const handleDestinationFilterChange = useCallback((text) => {
     setDestinoFiltro(text);
     if (text.length > 0) {
       const filtered = SALGUEIRO_LOCATIONS.filter(location =>
-        location.toLowerCase().includes(text.toLowerCase())
+        location.nome.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredDestinationSuggestions(filtered);
       setShowDestinationSuggestions(true);
     } else {
       setShowDestinationSuggestions(false);
     }
-  };
+  }, []);
 
-  // Função de seleção para Destino
-  const selectDestinationFilter = (location) => {
-    setDestinoFiltro(location);
+  const selectDestinationFilter = useCallback((location) => {
+    setDestinoFiltro(location.nome);
     setShowDestinationSuggestions(false);
-  };
+  }, []);
 
+  // Efeito para buscar as corridas ativas do Firestore
   useEffect(() => {
     setLoading(true);
     const corridasRef = collection(db, 'corridas');
@@ -68,16 +78,53 @@ export default function BuscarCorrida({ navigation }) {
     return () => unsubscribe();
   }, []);
 
+  // Efeito para aplicar todos os filtros
   useEffect(() => {
-    if (destinoFiltro.trim() === '') {
-      setFilteredCorridas(allCorridas);
-    } else {
-      const filtered = allCorridas.filter(corrida =>
+    let filtered = allCorridas;
+    
+    // Filtro por destino
+    if (destinoFiltro.trim() !== '') {
+      filtered = filtered.filter(corrida =>
         corrida.destino.toLowerCase().includes(destinoFiltro.toLowerCase())
       );
-      setFilteredCorridas(filtered);
     }
-  }, [destinoFiltro, allCorridas]);
+
+    // Filtro por data
+    if (dataFiltro.trim() !== '') {
+      filtered = filtered.filter(corrida =>
+        corrida.data && corrida.data.includes(dataFiltro)
+      );
+    }
+
+    // Filtro por horário
+    if (horarioFiltro.trim() !== '') {
+      filtered = filtered.filter(corrida =>
+        corrida.horario && corrida.horario.includes(horarioFiltro)
+      );
+    }
+
+    // Filtro por valor
+    const minValor = parseFloat(valorMinFiltro.replace(',', '.'));
+    const maxValor = parseFloat(valorMaxFiltro.replace(',', '.'));
+    if (!isNaN(minValor)) {
+      filtered = filtered.filter(corrida => corrida.valor >= minValor);
+    }
+    if (!isNaN(maxValor)) {
+      filtered = filtered.filter(corrida => corrida.valor <= maxValor);
+    }
+
+    // Filtro por distância
+    const minDistancia = parseFloat(distanciaMinFiltro.replace(',', '.'));
+    const maxDistancia = parseFloat(distanciaMaxFiltro.replace(',', '.'));
+    if (!isNaN(minDistancia)) {
+      filtered = filtered.filter(corrida => parseFloat(corrida.distancia) >= minDistancia);
+    }
+    if (!isNaN(maxDistancia)) {
+      filtered = filtered.filter(corrida => parseFloat(corrida.distancia) <= maxDistancia);
+    }
+
+    setFilteredCorridas(filtered);
+  }, [destinoFiltro, dataFiltro, horarioFiltro, valorMinFiltro, valorMaxFiltro, distanciaMinFiltro, distanciaMaxFiltro, allCorridas]);
 
   async function handleAceitarCorrida(corrida) {
     const user = auth.currentUser;
@@ -87,7 +134,7 @@ export default function BuscarCorrida({ navigation }) {
       return;
     }
 
-    const isAlreadyPassenger = corrida.passageiros && corrida.passageiros.some(p => p.uid === user.uid);
+    const isAlreadyPassenger = corrida.passengerUids && corrida.passengerUids.includes(user.uid);
     if (isAlreadyPassenger) {
       Alert.alert('Atenção', 'Você já aceitou esta corrida.');
       return;
@@ -116,7 +163,7 @@ export default function BuscarCorrida({ navigation }) {
         const corridaDoc = await transaction.get(corridaRef);
 
         if (!passengerDoc.exists() || !driverDoc.exists() || !corridaDoc.exists()) {
-          throw "Documentos não encontrados! Tente novamente.";
+          throw new Error("Documentos não encontrados! Tente novamente.");
         }
 
         const passengerData = passengerDoc.data();
@@ -128,12 +175,12 @@ export default function BuscarCorrida({ navigation }) {
         const currentDriverBalance = driverData.balance || 0;
 
         if (currentPassengerBalance < valorCorrida) {
-          throw "Saldo insuficiente para aceitar esta corrida.";
+          throw new Error("Saldo insuficiente para aceitar esta corrida.");
         }
 
         const currentPassageiros = corridaData.passageiros ? corridaData.passageiros.length : 0;
         if (currentPassageiros >= corridaData.lugaresDisponiveis) {
-          throw "Corrida lotada enquanto você tentava aceitar.";
+          throw new Error("Corrida lotada enquanto você tentava aceitar.");
         }
         
         transaction.update(passengerRef, {
@@ -171,8 +218,12 @@ export default function BuscarCorrida({ navigation }) {
           <Feather name="map-pin" size={18} color="#6B46C1" /> {item.origem} → {item.destino}
         </Text>
         <View style={styles.infoRow}>
+          <Text style={styles.detailText}><Feather name="calendar" size={14} color="#4A5568" /> {item.data}</Text>
           <Text style={styles.detailText}><Feather name="clock" size={14} color="#4A5568" /> {item.horario}</Text>
+        </View>
+        <View style={styles.infoRow}>
           <Text style={styles.detailText}><Feather name="dollar-sign" size={14} color="#38A169" /> R$ {item.valor ? item.valor.toFixed(2).replace('.', ',') : '0,00'}</Text>
+          <Text style={styles.detailText}><Feather name="trending-up" size={14} color="#4A5568" /> Distância: {item.distancia || 'N/A'} km</Text>
         </View>
         <Text style={styles.detailText}><Feather name="truck" size={14} color="#4A5568" /> Veículo: {item.veiculo || 'N/A'}</Text>
         <Text style={styles.detailText}><Feather name="users" size={14} color="#4A5568" /> Lugares: {passageirosAtuais}/{item.lugaresDisponiveis || 'N/A'}
@@ -208,63 +259,164 @@ export default function BuscarCorrida({ navigation }) {
     );
   };
 
+  const ListHeader = useMemo(() => (
+    <View style={styles.headerContainer}>
+      <Text style={styles.title}>Buscar Corrida</Text>
+
+      {/* Filtro por Destino */}
+      <Text style={styles.label}>Destino</Text>
+      <View style={styles.inputContainer}>
+        <Feather name="search" size={20} color="#805AD5" style={styles.icon} />
+        <TextInput
+          style={styles.input}
+          placeholder="Digite o destino para buscar"
+          placeholderTextColor="#A0AEC0"
+          value={destinoFiltro}
+          onChangeText={handleDestinationFilterChange}
+          onFocus={() => setShowDestinationSuggestions(destinoFiltro.length > 0)}
+          onBlur={() => setTimeout(() => setShowDestinationSuggestions(false), 150)}
+        />
+      </View>
+      {showDestinationSuggestions && filteredDestinationSuggestions.length > 0 && (
+        <View style={styles.suggestionsContainer}>
+          <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+            {filteredDestinationSuggestions.map(item => (
+              <TouchableOpacity key={item.nome} style={styles.suggestionItem} onPress={() => selectDestinationFilter(item)}>
+                <Text style={styles.suggestionText}>{item.nome}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Filtro por Data */}
+      <Text style={styles.label}>Data</Text>
+      <View style={styles.inputContainer}>
+        <Feather name="calendar" size={20} color="#805AD5" style={styles.icon} />
+        <TextInput
+          style={styles.input}
+          placeholder="Ex: DD/MM/AAAA"
+          placeholderTextColor="#A0AEC0"
+          value={dataFiltro}
+          onChangeText={setDataFiltro}
+        />
+      </View>
+
+      {/* Filtro por Horário */}
+      <Text style={styles.label}>Horário</Text>
+      <View style={styles.inputContainer}>
+        <Feather name="clock" size={20} color="#805AD5" style={styles.icon} />
+        <TextInput
+          style={styles.input}
+          placeholder="Ex: 15:30"
+          placeholderTextColor="#A0AEC0"
+          value={horarioFiltro}
+          onChangeText={setHorarioFiltro}
+        />
+      </View>
+
+      {/* Filtros de Valor */}
+      <Text style={styles.label}>Valor (R$)</Text>
+      <View style={styles.filterRow}>
+        <View style={styles.inputContainerRow}>
+          <Feather name="dollar-sign" size={20} color="#805AD5" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Min"
+            placeholderTextColor="#A0AEC0"
+            value={valorMinFiltro}
+            onChangeText={setValorMinFiltro}
+            keyboardType="numeric"
+          />
+        </View>
+        <Text style={styles.separator}>até</Text>
+        <View style={styles.inputContainerRow}>
+          <Feather name="dollar-sign" size={20} color="#805AD5" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Max"
+            placeholderTextColor="#A0AEC0"
+            value={valorMaxFiltro}
+            onChangeText={setValorMaxFiltro}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      {/* Filtros de Distância */}
+      <Text style={styles.label}>Distância (km)</Text>
+      <View style={styles.filterRow}>
+        <View style={styles.inputContainerRow}>
+          <Feather name="trending-up" size={20} color="#805AD5" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Min"
+            placeholderTextColor="#A0AEC0"
+            value={distanciaMinFiltro}
+            onChangeText={setDistanciaMinFiltro}
+            keyboardType="numeric"
+          />
+        </View>
+        <Text style={styles.separator}>até</Text>
+        <View style={styles.inputContainerRow}>
+          <Feather name="trending-up" size={20} color="#805AD5" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Max"
+            placeholderTextColor="#A0AEC0"
+            value={distanciaMaxFiltro}
+            onChangeText={setDistanciaMaxFiltro}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+      
+      {filteredCorridas.length > 0 && (
+        <Text style={styles.resultTitle}>
+          {destinoFiltro.trim() !== '' || dataFiltro.trim() !== '' || horarioFiltro.trim() !== '' || valorMinFiltro.trim() !== '' || valorMaxFiltro.trim() !== '' || distanciaMinFiltro.trim() !== '' || distanciaMaxFiltro.trim() !== ''
+            ? 'Corridas Encontradas:' : 'Todas as Corridas Ativas:'}
+        </Text>
+      )}
+    </View>
+  ), [
+    destinoFiltro,
+    dataFiltro,
+    horarioFiltro,
+    valorMinFiltro,
+    valorMaxFiltro,
+    distanciaMinFiltro,
+    distanciaMaxFiltro,
+    showDestinationSuggestions,
+    filteredDestinationSuggestions,
+    filteredCorridas.length,
+    handleDestinationFilterChange,
+    selectDestinationFilter,
+  ]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.title}>Buscar Corrida</Text>
-
-        <Text style={styles.label}>Destino</Text>
-        <View style={styles.inputContainer}>
-          <Feather name="search" size={20} color="#805AD5" style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Digite o destino para buscar"
-            placeholderTextColor="#A0AEC0"
-            value={destinoFiltro}
-            onChangeText={handleDestinationFilterChange} // <--- Usa a nova função de filtro
-            onFocus={() => setShowDestinationSuggestions(destinoFiltro.length > 0)}
-            onBlur={() => setTimeout(() => setShowDestinationSuggestions(false), 100)}
-          />
-        </View>
-        {showDestinationSuggestions && filteredDestinationSuggestions.length > 0 && (
-            <View style={styles.suggestionsContainer}>
-              <FlatList
-                data={filteredDestinationSuggestions}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.suggestionItem} onPress={() => selectDestinationFilter(item)}>
-                    <Text style={styles.suggestionText}>{item}</Text>
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          )}
-
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#6B46C1" />
             <Text style={styles.loadingText}>Carregando corridas...</Text>
           </View>
         ) : (
-          <View style={styles.resultContainer}>
-            {filteredCorridas.length > 0 && destinoFiltro.trim() !== '' && <Text style={styles.resultTitle}>Corridas Encontradas:</Text>}
-            {destinoFiltro.trim() === '' && allCorridas.length > 0 && <Text style={styles.resultTitle}>Todas as Corridas Ativas:</Text>}
-
-
-            <FlatList
-              data={filteredCorridas}
-              keyExtractor={(item) => item.id}
-              renderItem={renderCorrida}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              ListEmptyComponent={() => (
-                <Text style={styles.noResultText}>
-                  {destinoFiltro.trim() === ''
-                    ? 'Nenhuma corrida ativa disponível no momento.'
-                    : `Nenhuma corrida encontrada para "${destinoFiltro}".`}
-                </Text>
-              )}
-            />
-          </View>
+          <FlatList
+            data={filteredCorridas}
+            keyExtractor={(item) => item.id}
+            renderItem={renderCorrida}
+            contentContainerStyle={styles.listContentContainer}
+            ListHeaderComponent={ListHeader}
+            ListEmptyComponent={() => (
+              <Text style={styles.noResultText}>
+                {destinoFiltro.trim() === '' && dataFiltro.trim() === '' && horarioFiltro.trim() === ''
+                  ? 'Nenhuma corrida ativa disponível no momento.'
+                  : `Nenhuma corrida encontrada com os filtros selecionados.`}
+              </Text>
+            )}
+            keyboardShouldPersistTaps="handled"
+          />
         )}
       </View>
     </SafeAreaView>
@@ -279,7 +431,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 25,
-    paddingVertical: 20,
+    paddingTop: 20,
+  },
+  listContentContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  headerContainer: {
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,
@@ -301,7 +460,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 15,
-    marginBottom: 20, // Ajustado para dar espaço às sugestões
+    marginBottom: 20,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -309,66 +468,46 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  icon: {
-    marginRight: 10,
-  },
   input: {
     flex: 1,
     paddingVertical: Platform.OS === 'ios' ? 14 : 10,
     fontSize: 16,
     color: '#2D3748',
   },
-  // Estilos para as sugestões de autocomplete
+  icon: {
+    marginRight: 10,
+  },
   suggestionsContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginTop: -15, // Sobrepõe um pouco o input para parecer um dropdown
+    marginTop: -15,
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 5,
-    maxHeight: 200, // Limita a altura da lista de sugestões
-    zIndex: 1, // Garante que a lista apareça acima de outros elementos
+    maxHeight: 200,
+    zIndex: 1,
   },
   suggestionItem: {
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#F7FAFC', // Linha divisória suave
+    borderBottomColor: '#F7FAFC',
   },
   suggestionText: {
     fontSize: 16,
     color: '#4A5568',
-  },
-  button: {
-    backgroundColor: '#6B46C1',
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 25,
-    alignItems: 'center',
-    shadowColor: '#6B46C1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  resultContainer: {
-    flex: 1,
   },
   resultTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#2D3748',
     marginBottom: 20,
+    marginTop: 20,
   },
   corridaItem: {
     backgroundColor: '#fff',
@@ -470,5 +609,30 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: '#A0AEC0',
     marginTop: 8,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  inputContainerRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  separator: {
+    marginHorizontal: 10,
+    fontSize: 16,
+    color: '#4A5568',
   },
 });
