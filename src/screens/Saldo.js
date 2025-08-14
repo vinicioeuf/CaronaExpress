@@ -281,7 +281,7 @@ export default function Saldo() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6B46C1" />
+          <ActivityIndicator size="large" color="#000000ff" />
           <Text style={styles.loadingText}>Carregando perfil e saldo...</Text>
         </View>
       </SafeAreaView>
@@ -400,7 +400,7 @@ export default function Saldo() {
               </View>
             ) : (
               <View style={styles.qrCodePlaceholder}>
-                <ActivityIndicator size="large" color="#6B46C1" />
+                <ActivityIndicator size="large" color="#007a5cff" />
                 <Text style={styles.qrModalText}>Gerando QR Code...</Text>
               </View>
             )}
@@ -409,7 +409,7 @@ export default function Saldo() {
             
             {isMonitoring && (
               <View style={styles.monitoringIndicator}>
-                <ActivityIndicator size="small" color="#6B46C1" />
+                <ActivityIndicator size="small" color="#000000ff" />
                 <Text style={styles.monitoringText}>Monitorando pagamento...</Text>
               </View>
             )}
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     marginRight: 15,
     borderWidth: 2,
-    borderColor: '#6B46C1',
+    borderColor: '#000000ff',
   },
   infoList: {
     flex: 1,
@@ -551,10 +551,10 @@ const styles = StyleSheet.create({
   },
   depositButton: {
     backgroundColor: '#38A169',
-    shadowColor: '#38A169',
+    shadowColor: '#006830ff',
   },
   pixButton: {
-    backgroundColor: '#6B46C1',
+    backgroundColor: '#00776dff',
     shadowColor: '#6B46C1',
   },
   withdrawButton: {
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
   },
   monitoringText: {
     fontSize: 14,
-    color: '#6B46C1',
+    color: '#000000ff',
     marginLeft: 8,
     fontWeight: '500',
   },

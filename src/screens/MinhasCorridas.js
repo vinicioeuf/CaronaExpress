@@ -93,7 +93,7 @@ export default function MinhasCorridas() {
     return (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>
-          <Feather name="map-pin" size={18} color="#6B46C1" /> {item.origem} → {item.destino}
+          <Feather name="map-pin" size={18} color="#000" /> {item.origem} → {item.destino}
         </Text>
         <View style={styles.infoRow}>
           <Text style={styles.detailText}>
@@ -173,7 +173,7 @@ export default function MinhasCorridas() {
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#6B46C1" />
+            <ActivityIndicator size="large" color="#000" />
             <Text style={styles.loadingText}>Carregando corridas...</Text>
           </View>
         ) : (
@@ -228,8 +228,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabSelected: {
-    backgroundColor: '#6B46C1',
-    shadowColor: '#6B46C1',
+    backgroundColor: '#000',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 4,

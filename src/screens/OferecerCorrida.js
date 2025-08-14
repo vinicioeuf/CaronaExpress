@@ -1,9 +1,14 @@
+// A localização do seu arquivo, ex: src/screens/OferecerCorrida.js
+
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, ScrollView, SafeAreaView, FlatList } from 'react-native';
+import {
+  View, Text, StyleSheet, TextInput, TouchableOpacity, /*Alert,*/ Platform, ScrollView, SafeAreaView, FlatList
+} from 'react-native';
 import { db, auth } from '../firebase/firebaseConfig';
 import { collection, addDoc } from 'firebase/firestore';
 import { Feather } from '@expo/vector-icons';
-import SALGUEIRO_LOCATIONS from '../componets/salgueiroLocations.json'; // Importar o novo JSON
+import SALGUEIRO_LOCATIONS from '../componets/salgueiroLocations.json';
+import CustomAlert from '../componets/CustomAlert'; // 1. IMPORTADO O COMPONENTE DE ALERTA
 
 export default function OferecerCorrida({ navigation }) {
   // Estados para os nomes das localizações e os objetos completos com coordenadas
@@ -28,24 +33,32 @@ export default function OferecerCorrida({ navigation }) {
   const [filteredDestinationSuggestions, setFilteredDestinationSuggestions] = useState([]);
   const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
 
+  // 2. ESTADO PARA O ALERTA PERSONALIZADO
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    message: '',
+    iconName: 'info',
+    iconColor: '#6B46C1'
+  });
+
+  // 3. FUNÇÃO PARA EXIBIR O ALERTA
+  const showAlert = (message, iconName = 'alert-circle', iconColor = '#DD6B20') => {
+    setAlertConfig({ message, iconName, iconColor });
+    setAlertVisible(true);
+  };
+
   /**
-   * Função para calcular a distância entre dois pontos (coordenadas x, y).
-   * @param {object} loc1 - O primeiro objeto de localização com 'x' e 'y'.
-   * @param {object} loc2 - O segundo objeto de localização com 'x' e 'y'.
-   * @returns {number} A distância calculada em km.
+   * Função para calcular a distância (sem alterações)
    */
   const calculateDistance = (loc1, loc2) => {
-    // Usando o teorema de Pitágoras para calcular a distância euclidiana
     const deltaX = loc2.x - loc1.x;
     const deltaY = loc2.y - loc1.y;
     const distanceInArbitraryUnits = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
-    // Converte unidades arbitrárias para KM. Este é um valor simulado.
-    const kmPerUnit = 0.05; // 1 unidade no mapa imaginário = 0.05 km
+    const kmPerUnit = 0.05;
     return (distanceInArbitraryUnits * kmPerUnit);
   };
 
-  // Efeito para calcular a distância sempre que origem e destino forem selecionados
+  // Efeitos para cálculo de distância e valor (sem alterações)
   useEffect(() => {
     if (origemLocation && destinoLocation) {
       const calculatedDistance = calculateDistance(origemLocation, destinoLocation);
@@ -55,23 +68,18 @@ export default function OferecerCorrida({ navigation }) {
     }
   }, [origemLocation, destinoLocation]);
 
-  // NOVO EFEITO: Calcula o valor da corrida com base na distância
   useEffect(() => {
     if (distancia !== null) {
-      const GASOLINE_PRICE_PER_LITER = 6.85; // Valor da gasolina em R$
-      const CAR_EFFICIENCY_KM_PER_L = 10; // Consumo médio do carro (10 km/L)
-      const PROFIT_MARGIN = 1.2; // Adiciona 20% de margem
-
-      // Calcula o custo total e adiciona a margem de lucro
+      const GASOLINE_PRICE_PER_LITER = 6.85;
+      const CAR_EFFICIENCY_KM_PER_L = 10;
+      const PROFIT_MARGIN = 1.2;
       const totalCost = (distancia / CAR_EFFICIENCY_KM_PER_L) * GASOLINE_PRICE_PER_LITER * PROFIT_MARGIN;
-      
-      // Formata o valor para 2 casas decimais e substitui '.' por ',' para o formato BRL
       const formattedValue = totalCost.toFixed(2).replace('.', ',');
       setValor(formattedValue);
     }
   }, [distancia]);
 
-  // Função de filtro para Origem
+  // Funções de autocomplete e formatação de inputs (sem alterações)
   const handleOriginChange = (text) => {
     setOrigem(text);
     if (text.length > 0) {
@@ -86,14 +94,12 @@ export default function OferecerCorrida({ navigation }) {
     }
   };
 
-  // Função de seleção para Origem
   const selectOrigin = (location) => {
     setOrigem(location.nome);
     setOrigemLocation(location);
     setShowOriginSuggestions(false);
   };
 
-  // Função de filtro para Destino
   const handleDestinationChange = (text) => {
     setDestino(text);
     if (text.length > 0) {
@@ -108,53 +114,38 @@ export default function OferecerCorrida({ navigation }) {
     }
   };
 
-  // Função de seleção para Destino
   const selectDestination = (location) => {
     setDestino(location.nome);
     setDestinoLocation(location);
     setShowDestinationSuggestions(false);
   };
-
-  // Lógica para formatar o valor como moeda (R$)
+  
   const handleValorChange = (text) => {
     let cleanedText = text.replace(/[^0-9,]/g, '');
     const parts = cleanedText.split(',');
-
     if (parts.length > 2) {
       cleanedText = `${parts[0]},${parts.slice(1).join('')}`;
     }
-
-    if (cleanedText.includes(',')) {
-      setValor(cleanedText);
-    } else {
-      setValor(cleanedText);
-    }
+    setValor(cleanedText);
   };
 
-  // Lógica para formatar a data como DD/MM/AAAA
   const handleDataChange = (text) => {
     let cleanedText = text.replace(/[^0-9]/g, '');
-    if (cleanedText.length > 8) {
-      cleanedText = cleanedText.substring(0, 8);
-    }
-    
-    if (cleanedText.length >= 2) {
-      cleanedText = cleanedText.substring(0, 2) + '/' + cleanedText.substring(2);
-    }
-    if (cleanedText.length >= 5) {
-      cleanedText = cleanedText.substring(0, 5) + '/' + cleanedText.substring(5);
-    }
+    if (cleanedText.length > 8) cleanedText = cleanedText.substring(0, 8);
+    if (cleanedText.length >= 2) cleanedText = cleanedText.substring(0, 2) + '/' + cleanedText.substring(2);
+    if (cleanedText.length >= 5) cleanedText = cleanedText.substring(0, 5) + '/' + cleanedText.substring(5);
     setData(cleanedText);
   };
 
   async function handleEnviar() {
+    // 4. SUBSTITUIÇÃO DOS ALERTS POR showAlert
     if (!origem || !destino || !horario || !data || !veiculo || !lugaresDisponiveis || !valor) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      showAlert('Por favor, preencha todos os campos.');
       return;
     }
 
     if (!origemLocation || !destinoLocation) {
-      Alert.alert('Erro', 'Por favor, selecione uma Origem e um Destino válidos da lista de sugestões.');
+      showAlert('Por favor, selecione uma Origem e um Destino válidos da lista.');
       return;
     }
 
@@ -162,11 +153,11 @@ export default function OferecerCorrida({ navigation }) {
     const parsedValor = parseFloat(valor.replace(',', '.'));
 
     if (isNaN(parsedLugares) || parsedLugares <= 0) {
-      Alert.alert('Erro', 'Lugares disponíveis deve ser um número inteiro positivo.');
+      showAlert('Lugares disponíveis deve ser um número inteiro positivo.');
       return;
     }
     if (isNaN(parsedValor) || parsedValor <= 0) {
-      Alert.alert('Erro', 'Valor deve ser um número positivo.');
+      showAlert('O valor deve ser um número positivo.');
       return;
     }
 
@@ -174,7 +165,7 @@ export default function OferecerCorrida({ navigation }) {
       const user = auth.currentUser;
 
       if (!user) {
-        Alert.alert('Erro', 'Usuário não autenticado.');
+        showAlert('Usuário não autenticado. Faça login novamente.', 'user-x', '#E53E3E');
         return;
       }
 
@@ -197,7 +188,10 @@ export default function OferecerCorrida({ navigation }) {
         status: 'Ativa'
       });
 
-      Alert.alert('Sucesso', 'Corrida cadastrada com sucesso!');
+      // Alerta de sucesso
+      showAlert('Corrida cadastrada com sucesso!', 'check-circle', '#38A169');
+      
+      // Limpa os campos do formulário
       setOrigem('');
       setDestino('');
       setOrigemLocation(null);
@@ -215,20 +209,20 @@ export default function OferecerCorrida({ navigation }) {
 
     } catch (error) {
       console.error('Erro ao cadastrar corrida:', error);
-      Alert.alert('Erro', 'Não foi possível cadastrar a corrida.');
+      showAlert('Não foi possível cadastrar a corrida. Tente novamente.', 'x-circle', '#E53E3E');
     }
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
         <View style={styles.container}>
           <Text style={styles.title}>Oferecer Nova Corrida</Text>
 
           {/* Campo Origem com Autocomplete */}
           <Text style={styles.label}>Origem</Text>
           <View style={styles.inputContainer}>
-            <Feather name="map-pin" size={20} color="#805AD5" style={styles.icon} />
+            <Feather name="map-pin" size={20} color="#000" style={styles.icon} />
             <TextInput
               style={styles.input}
               placeholder="Digite a origem"
@@ -236,7 +230,7 @@ export default function OferecerCorrida({ navigation }) {
               value={origem}
               onChangeText={handleOriginChange}
               onFocus={() => setShowOriginSuggestions(origem.length > 0)}
-              onBlur={() => setTimeout(() => setShowOriginSuggestions(false), 100)}
+              onBlur={() => setTimeout(() => setShowOriginSuggestions(false), 150)}
             />
           </View>
           {showOriginSuggestions && filteredOriginSuggestions.length > 0 && (
@@ -249,6 +243,7 @@ export default function OferecerCorrida({ navigation }) {
                     <Text style={styles.suggestionText}>{item.nome}</Text>
                   </TouchableOpacity>
                 )}
+                nestedScrollEnabled
               />
             </View>
           )}
@@ -256,7 +251,7 @@ export default function OferecerCorrida({ navigation }) {
           {/* Campo Destino com Autocomplete */}
           <Text style={styles.label}>Destino</Text>
           <View style={styles.inputContainer}>
-            <Feather name="flag" size={20} color="#805AD5" style={styles.icon} />
+            <Feather name="flag" size={20} color="#000" style={styles.icon} />
             <TextInput
               style={styles.input}
               placeholder="Digite o destino"
@@ -264,7 +259,7 @@ export default function OferecerCorrida({ navigation }) {
               value={destino}
               onChangeText={handleDestinationChange}
               onFocus={() => setShowDestinationSuggestions(destino.length > 0)}
-              onBlur={() => setTimeout(() => setShowDestinationSuggestions(false), 100)}
+              onBlur={() => setTimeout(() => setShowDestinationSuggestions(false), 150)}
             />
           </View>
           {showDestinationSuggestions && filteredDestinationSuggestions.length > 0 && (
@@ -277,6 +272,7 @@ export default function OferecerCorrida({ navigation }) {
                     <Text style={styles.suggestionText}>{item.nome}</Text>
                   </TouchableOpacity>
                 )}
+                nestedScrollEnabled
               />
             </View>
           )}
@@ -289,10 +285,10 @@ export default function OferecerCorrida({ navigation }) {
             </View>
           )}
 
-          {/* Campo Data */}
+          {/* Restante dos campos do formulário */}
           <Text style={styles.label}>Data da Corrida</Text>
           <View style={styles.inputContainer}>
-            <Feather name="calendar" size={20} color="#805AD5" style={styles.icon} />
+            <Feather name="calendar" size={20} color="#000" style={styles.icon} />
             <TextInput
               style={styles.input}
               placeholder="Ex: DD/MM/AAAA"
@@ -303,10 +299,9 @@ export default function OferecerCorrida({ navigation }) {
             />
           </View>
 
-          {/* Campo Horário */}
           <Text style={styles.label}>Horário</Text>
           <View style={styles.inputContainer}>
-            <Feather name="clock" size={20} color="#805AD5" style={styles.icon} />
+            <Feather name="clock" size={20} color="#000" style={styles.icon} />
             <TextInput
               style={styles.input}
               placeholder="Ex: 15:30"
@@ -319,7 +314,7 @@ export default function OferecerCorrida({ navigation }) {
 
           <Text style={styles.label}>Veículo</Text>
           <View style={styles.inputContainer}>
-            <Feather name="truck" size={20} color="#805AD5" style={styles.icon} />
+            <Feather name="truck" size={20} color="#000" style={styles.icon} />
             <TextInput
               style={styles.input}
               placeholder="Ex: Fiat Uno - Branco"
@@ -331,7 +326,7 @@ export default function OferecerCorrida({ navigation }) {
 
           <Text style={styles.label}>Lugares Disponíveis</Text>
           <View style={styles.inputContainer}>
-            <Feather name="users" size={20} color="#805AD5" style={styles.icon} />
+            <Feather name="users" size={20} color="#000" style={styles.icon} />
             <TextInput
               style={styles.input}
               placeholder="Ex: 3"
@@ -342,10 +337,9 @@ export default function OferecerCorrida({ navigation }) {
             />
           </View>
 
-          {/* Campo Valor */}
           <Text style={styles.label}>Valor por Passageiro (R$)</Text>
           <View style={styles.inputContainer}>
-            <Feather name="dollar-sign" size={20} color="#805AD5" style={styles.icon} />
+            <Feather name="dollar-sign" size={20} color="#000" style={styles.icon} />
             <TextInput
               style={styles.input}
               placeholder="Ex: 25,50"
@@ -361,10 +355,20 @@ export default function OferecerCorrida({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* 5. RENDERIZAÇÃO DO COMPONENTE DE ALERTA */}
+      <CustomAlert
+        visible={alertVisible}
+        onClose={() => setAlertVisible(false)}
+        message={alertConfig.message}
+        iconName={alertConfig.iconName}
+        iconColor={alertConfig.iconColor}
+      />
     </SafeAreaView>
   );
 }
 
+// Estilos (sem alterações)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -417,27 +421,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2D3748',
   },
-  // Estilos para as sugestões de autocomplete
   suggestionsContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginTop: -15, // Sobrepõe um pouco o input para parecer um dropdown
+    marginTop: -15,
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 5,
-    maxHeight: 200, // Limita a altura da lista de sugestões
-    zIndex: 1, // Garante que a lista apareça acima de outros elementos
+    maxHeight: 150,
+    zIndex: 1000,
   },
   suggestionItem: {
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#F7FAFC', // Linha divisória suave
+    borderBottomColor: '#F7FAFC',
   },
   suggestionText: {
     fontSize: 16,
@@ -448,7 +451,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     padding: 15,
-    backgroundColor: '#E6FFFA', // Cor de fundo suave para a distância
+    backgroundColor: '#E6FFFA',
     borderRadius: 12,
     borderColor: '#B2F5EA',
     borderWidth: 1,
@@ -460,12 +463,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   button: {
-    backgroundColor: '#6B46C1',
+    backgroundColor: '#000',
     paddingVertical: 16,
     borderRadius: 12,
     marginTop: 20,
     alignItems: 'center',
-    shadowColor: '#6B46C1',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
