@@ -72,7 +72,7 @@ export function PasswordRecovery({ fecharModal }) {
             </View>
 
             <TouchableOpacity onPress={onHandlePress} style={{ width: "100%", marginTop: 20 }}>
-              <LinearGradient colors={['#805AD5', '#6B46C1']} style={styles.button}>
+              <LinearGradient colors={['#000000ff', '#000000ff']} style={styles.button}>
                 <Text style={styles.buttonText}>Redefinir Senha</Text> {/* Texto do botão ajustado */}
               </LinearGradient>
             </TouchableOpacity>
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#6B46C1',
+    shadowColor: '#000000ff',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

@@ -12,6 +12,7 @@ import {
   ScrollView,
   SafeAreaView,
   Platform, // Importar Platform
+  Image
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
@@ -80,6 +81,7 @@ export default function Login({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
+        
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>Bem-vindo(a)!</Text>
@@ -126,7 +128,7 @@ export default function Login({ navigation }) {
 
           {/* Botão Entrar */}
           <Pressable onPress={handleLogin} style={{ width: '100%', marginTop: 20 }}>
-            <LinearGradient colors={['#805AD5', '#6B46C1']} style={styles.button}>
+            <LinearGradient colors={['#000000ff', '#000000ff']} style={styles.button}>
               <Text style={styles.buttonText}>Entrar</Text>
             </LinearGradient>
           </Pressable>
@@ -171,16 +173,21 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#F7FAFC',
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingVertical: 30,
+    alignItems: 'center',
+  
   },
   container: {
     flex: 1,
     paddingHorizontal: width * 0.08,
     alignItems: 'center',
+    justifyContent: 'center'
   },
   header: {
     marginBottom: 40,
@@ -195,6 +202,10 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#4A5568',
+  },
+  logo: {
+    width: 100,
+    height: 30,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -230,7 +241,7 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontSize: 14,
-    color: '#805AD5',
+    color: '#000000ff',
     fontWeight: '600',
   },
   button: {
@@ -239,7 +250,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#6B46C1',
+    shadowColor: '#000000ff',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -262,7 +273,7 @@ const styles = StyleSheet.create({
   },
   registerLink: {
     fontSize: 15,
-    color: '#805AD5',
+    color: '#000000ff',
     fontWeight: '700',
   },
   orText: {

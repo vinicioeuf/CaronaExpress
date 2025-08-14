@@ -1,3 +1,5 @@
+// A localização do seu arquivo, ex: src/screens/BuscarCorrida.js
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -5,7 +7,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  Alert,
   Platform,
   TextInput,
   SafeAreaView,
@@ -17,6 +18,7 @@ import { collection, getFirestore, query, where, onSnapshot, doc, updateDoc, arr
 import { app, auth, db } from '../firebase/firebaseConfig';
 import { Feather } from '@expo/vector-icons';
 import SALGUEIRO_LOCATIONS from '../componets/salgueiroLocations.json';
+import CustomAlert from '../componets/CustomAlert'; // 1. IMPORTADO
 
 export default function BuscarCorrida({ navigation }) {
   // Filtros de pesquisa
@@ -37,7 +39,21 @@ export default function BuscarCorrida({ navigation }) {
   const [filteredDestinationSuggestions, setFilteredDestinationSuggestions] = useState([]);
   const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
 
-  // Lógica de filtro e autocomplete para o destino (memorizada com useCallback)
+  // 2. ESTADO PARA O ALERTA PERSONALIZADO
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    message: '',
+    iconName: 'info',
+    iconColor: '#000'
+  });
+
+  // 3. FUNÇÃO PARA EXIBIR O ALERTA
+  const showAlert = (message, iconName = 'info', iconColor = '#000') => {
+    setAlertConfig({ message, iconName, iconColor });
+    setAlertVisible(true);
+  };
+
+  // Lógica de filtro e autocomplete (sem alterações)
   const handleDestinationFilterChange = useCallback((text) => {
     setDestinoFiltro(text);
     if (text.length > 0) {
@@ -56,7 +72,7 @@ export default function BuscarCorrida({ navigation }) {
     setShowDestinationSuggestions(false);
   }, []);
 
-  // Efeito para buscar as corridas ativas do Firestore
+  // Efeito para buscar as corridas (com alert substituído)
   useEffect(() => {
     setLoading(true);
     const corridasRef = collection(db, 'corridas');
@@ -71,83 +87,81 @@ export default function BuscarCorrida({ navigation }) {
       setLoading(false);
     }, (error) => {
       console.error("Erro ao carregar corridas:", error);
-      Alert.alert('Erro', 'Não foi possível carregar as corridas disponíveis.');
+      // 4. SUBSTITUIÇÃO DO ALERT
+      showAlert('Não foi possível carregar as corridas disponíveis.', 'alert-triangle', '#E53E3E');
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
-
-  // Efeito para aplicar todos os filtros
+  
+  // Efeito para aplicar filtros (sem alterações)
   useEffect(() => {
     let filtered = allCorridas;
     
-    // Filtro por destino
     if (destinoFiltro.trim() !== '') {
       filtered = filtered.filter(corrida =>
         corrida.destino.toLowerCase().includes(destinoFiltro.toLowerCase())
       );
     }
-
-    // Filtro por data
     if (dataFiltro.trim() !== '') {
-      filtered = filtered.filter(corrida =>
-        corrida.data && corrida.data.includes(dataFiltro)
-      );
+        filtered = filtered.filter(corrida =>
+            corrida.data && corrida.data.includes(dataFiltro)
+        );
     }
-
-    // Filtro por horário
     if (horarioFiltro.trim() !== '') {
-      filtered = filtered.filter(corrida =>
-        corrida.horario && corrida.horario.includes(horarioFiltro)
-      );
+        filtered = filtered.filter(corrida =>
+            corrida.horario && corrida.horario.includes(horarioFiltro)
+        );
     }
-
-    // Filtro por valor
     const minValor = parseFloat(valorMinFiltro.replace(',', '.'));
     const maxValor = parseFloat(valorMaxFiltro.replace(',', '.'));
     if (!isNaN(minValor)) {
-      filtered = filtered.filter(corrida => corrida.valor >= minValor);
+        filtered = filtered.filter(corrida => corrida.valor >= minValor);
     }
     if (!isNaN(maxValor)) {
-      filtered = filtered.filter(corrida => corrida.valor <= maxValor);
+        filtered = filtered.filter(corrida => corrida.valor <= maxValor);
     }
-
-    // Filtro por distância
     const minDistancia = parseFloat(distanciaMinFiltro.replace(',', '.'));
     const maxDistancia = parseFloat(distanciaMaxFiltro.replace(',', '.'));
     if (!isNaN(minDistancia)) {
-      filtered = filtered.filter(corrida => parseFloat(corrida.distancia) >= minDistancia);
+        filtered = filtered.filter(corrida => parseFloat(corrida.distancia) >= minDistancia);
     }
     if (!isNaN(maxDistancia)) {
-      filtered = filtered.filter(corrida => parseFloat(corrida.distancia) <= maxDistancia);
+        filtered = filtered.filter(corrida => parseFloat(corrida.distancia) <= maxDistancia);
     }
 
     setFilteredCorridas(filtered);
   }, [destinoFiltro, dataFiltro, horarioFiltro, valorMinFiltro, valorMaxFiltro, distanciaMinFiltro, distanciaMaxFiltro, allCorridas]);
 
+
+  // Função para aceitar corrida (com alerts substituídos)
   async function handleAceitarCorrida(corrida) {
     const user = auth.currentUser;
 
     if (!user) {
-      Alert.alert('Erro', 'Você precisa estar logado para aceitar uma corrida.');
+      // 4. SUBSTITUIÇÃO DO ALERT
+      showAlert('Você precisa estar logado para aceitar uma corrida.', 'alert-circle', '#DD6B20');
       return;
     }
 
     const isAlreadyPassenger = corrida.passengerUids && corrida.passengerUids.includes(user.uid);
     if (isAlreadyPassenger) {
-      Alert.alert('Atenção', 'Você já aceitou esta corrida.');
+      // 4. SUBSTITUIÇÃO DO ALERT
+      showAlert('Você já aceitou esta corrida.', 'info', '#3182CE');
       return;
     }
 
     const passageirosAtuais = corrida.passageiros ? corrida.passageiros.length : 0;
     if (passageirosAtuais >= corrida.lugaresDisponiveis) {
-      Alert.alert('Corrida Lotada', 'Desculpe, esta corrida não tem mais lugares disponíveis.');
+      // 4. SUBSTITUIÇÃO DO ALERT
+      showAlert('Desculpe, esta corrida não tem mais lugares disponíveis.', 'slash', '#E53E3E');
       return;
     }
 
     if (corrida.motoristaId === user.uid) {
-      Alert.alert('Atenção', 'Você não pode aceitar sua própria corrida como passageiro.');
+      // 4. SUBSTITUIÇÃO DO ALERT
+      showAlert('Você não pode aceitar sua própria corrida como passageiro.', 'alert-circle', '#DD6B20');
       return;
     }
 
@@ -195,27 +209,30 @@ export default function BuscarCorrida({ navigation }) {
         });
       });
 
-      Alert.alert('Sucesso', 'Corrida aceita! O valor foi transferido para o motorista.');
+      // 4. SUBSTITUIÇÃO DO ALERT
+      showAlert('Corrida aceita! O valor foi transferido para o motorista.', 'check-circle', '#38A169');
       if (navigation) {
         navigation.navigate('MinhasCorridas');
       }
 
     } catch (error) {
       console.error('Erro na transação de aceitar corrida:', error);
-      Alert.alert('Erro', error.message || 'Não foi possível aceitar a corrida. Tente novamente.');
+      // 4. SUBSTITUIÇÃO DO ALERT
+      showAlert(error.message || 'Não foi possível aceitar a corrida.', 'x-circle', '#E53E3E');
     } finally {
       setLoading(false);
     }
   }
 
+  // renderCorrida e ListHeader (sem alterações)
   const renderCorrida = ({ item }) => {
     const passageirosAtuais = item.passageiros ? item.passageiros.length : 0;
     const estaLotada = passageirosAtuais >= item.lugaresDisponiveis;
-
+ 
     return (
       <View style={styles.corridaItem}>
         <Text style={styles.corridaTitle}>
-          <Feather name="map-pin" size={18} color="#6B46C1" /> {item.origem} → {item.destino}
+          <Feather name="map-pin" size={18} color="#000" /> {item.origem} → {item.destino}
         </Text>
         <View style={styles.infoRow}>
           <Text style={styles.detailText}><Feather name="calendar" size={14} color="#4A5568" /> {item.data}</Text>
@@ -231,7 +248,7 @@ export default function BuscarCorrida({ navigation }) {
         </Text>
         <Text style={styles.detailText}><Feather name="user" size={14} color="#4A5568" /> Motorista: {item.motoristaNome || 'Desconhecido'}</Text>
         <Text style={styles.statusText}><Feather name="info" size={14} color="#007bff" /> Status: {item.status || 'N/A'}</Text>
-
+ 
         {item.passageiros && item.passageiros.length > 0 && (
           <View style={styles.passengersContainer}>
             <Text style={styles.passengersTitle}>
@@ -245,7 +262,7 @@ export default function BuscarCorrida({ navigation }) {
         {(!item.passageiros || item.passageiros.length === 0) && (
           <Text style={styles.noPassengersText}>Seja o primeiro passageiro!</Text>
         )}
-
+ 
         <TouchableOpacity
           style={[styles.acceptButton, estaLotada && styles.disabledButton]}
           onPress={() => handleAceitarCorrida(item)}
@@ -258,125 +275,74 @@ export default function BuscarCorrida({ navigation }) {
       </View>
     );
   };
-
+ 
   const ListHeader = useMemo(() => (
     <View style={styles.headerContainer}>
-      <Text style={styles.title}>Buscar Corrida</Text>
-
-      {/* Filtro por Destino */}
-      <Text style={styles.label}>Destino</Text>
-      <View style={styles.inputContainer}>
-        <Feather name="search" size={20} color="#805AD5" style={styles.icon} />
-        <TextInput
-          style={styles.input}
-          placeholder="Digite o destino para buscar"
-          placeholderTextColor="#A0AEC0"
-          value={destinoFiltro}
-          onChangeText={handleDestinationFilterChange}
-          onFocus={() => setShowDestinationSuggestions(destinoFiltro.length > 0)}
-          onBlur={() => setTimeout(() => setShowDestinationSuggestions(false), 150)}
-        />
-      </View>
-      {showDestinationSuggestions && filteredDestinationSuggestions.length > 0 && (
-        <View style={styles.suggestionsContainer}>
-          <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
-            {filteredDestinationSuggestions.map(item => (
-              <TouchableOpacity key={item.nome} style={styles.suggestionItem} onPress={() => selectDestinationFilter(item)}>
-                <Text style={styles.suggestionText}>{item.nome}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+        <Text style={styles.title}>Buscar Corrida</Text>
+        <Text style={styles.label}>Destino</Text>
+        <View style={styles.inputContainer}>
+            <Feather name="search" size={20} color="#000" style={styles.icon}/>
+            <TextInput
+                style={styles.input}
+                placeholder="Digite o destino para buscar"
+                placeholderTextColor="#A0AEC0"
+                value={destinoFiltro}
+                onChangeText={handleDestinationFilterChange}
+                onFocus={() => setShowDestinationSuggestions(destinoFiltro.length > 0)}
+                onBlur={() => setTimeout(() => setShowDestinationSuggestions(false), 150)}
+            />
         </View>
-      )}
-
-      {/* Filtro por Data */}
-      <Text style={styles.label}>Data</Text>
-      <View style={styles.inputContainer}>
-        <Feather name="calendar" size={20} color="#805AD5" style={styles.icon} />
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: DD/MM/AAAA"
-          placeholderTextColor="#A0AEC0"
-          value={dataFiltro}
-          onChangeText={setDataFiltro}
-        />
-      </View>
-
-      {/* Filtro por Horário */}
-      <Text style={styles.label}>Horário</Text>
-      <View style={styles.inputContainer}>
-        <Feather name="clock" size={20} color="#805AD5" style={styles.icon} />
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: 15:30"
-          placeholderTextColor="#A0AEC0"
-          value={horarioFiltro}
-          onChangeText={setHorarioFiltro}
-        />
-      </View>
-
-      {/* Filtros de Valor */}
-      <Text style={styles.label}>Valor (R$)</Text>
-      <View style={styles.filterRow}>
-        <View style={styles.inputContainerRow}>
-          <Feather name="dollar-sign" size={20} color="#805AD5" style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Min"
-            placeholderTextColor="#A0AEC0"
-            value={valorMinFiltro}
-            onChangeText={setValorMinFiltro}
-            keyboardType="numeric"
-          />
+        {showDestinationSuggestions && filteredDestinationSuggestions.length > 0 && (
+            <View style={styles.suggestionsContainer}>
+                <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                    {filteredDestinationSuggestions.map(item => (
+                        <TouchableOpacity key={item.nome} style={styles.suggestionItem} onPress={() => selectDestinationFilter(item)}>
+                            <Text style={styles.suggestionText}>{item.nome}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+        )}
+        <Text style={styles.label}>Data</Text>
+        <View style={styles.inputContainer}>
+            <Feather name="calendar" size={20} color="#000" style={styles.icon}/>
+            <TextInput style={styles.input} placeholder="Ex: DD/MM/AAAA" placeholderTextColor="#A0AEC0" value={dataFiltro} onChangeText={setDataFiltro}/>
         </View>
-        <Text style={styles.separator}>até</Text>
-        <View style={styles.inputContainerRow}>
-          <Feather name="dollar-sign" size={20} color="#805AD5" style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Max"
-            placeholderTextColor="#A0AEC0"
-            value={valorMaxFiltro}
-            onChangeText={setValorMaxFiltro}
-            keyboardType="numeric"
-          />
+        <Text style={styles.label}>Horário</Text>
+        <View style={styles.inputContainer}>
+            <Feather name="clock" size={20} color="#000" style={styles.icon}/>
+            <TextInput style={styles.input} placeholder="Ex: 15:30" placeholderTextColor="#A0AEC0" value={horarioFiltro} onChangeText={setHorarioFiltro}/>
         </View>
-      </View>
-
-      {/* Filtros de Distância */}
-      <Text style={styles.label}>Distância (km)</Text>
-      <View style={styles.filterRow}>
-        <View style={styles.inputContainerRow}>
-          <Feather name="trending-up" size={20} color="#805AD5" style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Min"
-            placeholderTextColor="#A0AEC0"
-            value={distanciaMinFiltro}
-            onChangeText={setDistanciaMinFiltro}
-            keyboardType="numeric"
-          />
+        <Text style={styles.label}>Valor (R$)</Text>
+        <View style={styles.filterRow}>
+            <View style={styles.inputContainerRow}>
+                <Feather name="dollar-sign" size={20} color="#000" style={styles.icon}/>
+                <TextInput style={styles.input} placeholder="Min" placeholderTextColor="#A0AEC0" value={valorMinFiltro} onChangeText={setValorMinFiltro} keyboardType="numeric"/>
+            </View>
+            <Text style={styles.separator}>até</Text>
+            <View style={styles.inputContainerRow}>
+                <Feather name="dollar-sign" size={20} color="#000" style={styles.icon}/>
+                <TextInput style={styles.input} placeholder="Max" placeholderTextColor="#A0AEC0" value={valorMaxFiltro} onChangeText={setValorMaxFiltro} keyboardType="numeric"/>
+            </View>
         </View>
-        <Text style={styles.separator}>até</Text>
-        <View style={styles.inputContainerRow}>
-          <Feather name="trending-up" size={20} color="#805AD5" style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Max"
-            placeholderTextColor="#A0AEC0"
-            value={distanciaMaxFiltro}
-            onChangeText={setDistanciaMaxFiltro}
-            keyboardType="numeric"
-          />
+        <Text style={styles.label}>Distância (km)</Text>
+        <View style={styles.filterRow}>
+            <View style={styles.inputContainerRow}>
+                <Feather name="trending-up" size={20} color="#000" style={styles.icon}/>
+                <TextInput style={styles.input} placeholder="Min" placeholderTextColor="#A0AEC0" value={distanciaMinFiltro} onChangeText={setDistanciaMinFiltro} keyboardType="numeric"/>
+            </View>
+            <Text style={styles.separator}>até</Text>
+            <View style={styles.inputContainerRow}>
+                <Feather name="trending-up" size={20} color="#000" style={styles.icon}/>
+                <TextInput style={styles.input} placeholder="Max" placeholderTextColor="#A0AEC0" value={distanciaMaxFiltro} onChangeText={setDistanciaMaxFiltro} keyboardType="numeric"/>
+            </View>
         </View>
-      </View>
-      
-      {filteredCorridas.length > 0 && (
-        <Text style={styles.resultTitle}>
-          {destinoFiltro.trim() !== '' || dataFiltro.trim() !== '' || horarioFiltro.trim() !== '' || valorMinFiltro.trim() !== '' || valorMaxFiltro.trim() !== '' || distanciaMinFiltro.trim() !== '' || distanciaMaxFiltro.trim() !== ''
-            ? 'Corridas Encontradas:' : 'Todas as Corridas Ativas:'}
-        </Text>
-      )}
+        {filteredCorridas.length > 0 && (
+            <Text style={styles.resultTitle}>
+                {destinoFiltro.trim() !== '' || dataFiltro.trim() !== '' || horarioFiltro.trim() !== '' || valorMinFiltro.trim() !== '' || valorMaxFiltro.trim() !== '' || distanciaMinFiltro.trim() !== '' || distanciaMaxFiltro.trim() !== ''
+                    ? 'Corridas Encontradas:' : 'Todas as Corridas Ativas:'}
+            </Text>
+        )}
     </View>
   ), [
     destinoFiltro,
@@ -398,7 +364,7 @@ export default function BuscarCorrida({ navigation }) {
       <View style={styles.container}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#6B46C1" />
+            <ActivityIndicator size="large" color="#000" />
             <Text style={styles.loadingText}>Carregando corridas...</Text>
           </View>
         ) : (
@@ -419,220 +385,231 @@ export default function BuscarCorrida({ navigation }) {
           />
         )}
       </View>
+      
+      {/* 5. RENDERIZAÇÃO DO COMPONENTE DE ALERTA */}
+      <CustomAlert
+        visible={alertVisible}
+        onClose={() => setAlertVisible(false)}
+        message={alertConfig.message}
+        iconName={alertConfig.iconName}
+        iconColor={alertConfig.iconColor}
+      />
     </SafeAreaView>
   );
 }
 
+
+// Estilos (sem alterações)
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F7FAFC',
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 25,
-    paddingTop: 20,
-  },
-  listContentContainer: {
-    flexGrow: 1,
-    paddingBottom: 20,
-  },
-  headerContainer: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 35,
-    textAlign: 'center',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A5568',
-    marginBottom: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    marginBottom: 20,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
-    fontSize: 16,
-    color: '#2D3748',
-  },
-  icon: {
-    marginRight: 10,
-  },
-  suggestionsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginTop: -15,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 5,
-    maxHeight: 200,
-    zIndex: 1,
-  },
-  suggestionItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F7FAFC',
-  },
-  suggestionText: {
-    fontSize: 16,
-    color: '#4A5568',
-  },
-  resultTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 20,
-    marginTop: 20,
-  },
-  corridaItem: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 15,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  corridaTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 10,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  detailText: {
-    fontSize: 15,
-    color: '#4A5568',
-    marginBottom: 5,
-  },
-  statusText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#007bff',
-    marginTop: 5,
-  },
-  lotadaText: {
-    color: '#E53E3E',
-    fontWeight: 'bold',
-  },
-  acceptButton: {
-    backgroundColor: '#38A169',
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 15,
-    alignItems: 'center',
-    shadowColor: '#38A169',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  acceptButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  disabledButton: {
-    backgroundColor: '#CBD5E0',
-    shadowColor: 'transparent',
-    elevation: 0,
-  },
-  noResultText: {
-    fontSize: 16,
-    fontStyle: 'italic',
-    color: '#A0AEC0',
-    textAlign: 'center',
-    marginTop: 30,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 50,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#555',
-  },
-  passengersContainer: {
-    marginTop: 15,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-  passengersTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#4A5568',
-  },
-  passengerItem: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4,
-    marginLeft: 5,
-  },
-  noPassengersText: {
-    fontSize: 14,
-    fontStyle: 'italic',
-    color: '#A0AEC0',
-    marginTop: 8,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  inputContainerRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  separator: {
-    marginHorizontal: 10,
-    fontSize: 16,
-    color: '#4A5568',
-  },
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#F7FAFC',
+    },
+    container: {
+        flex: 1,
+        paddingHorizontal: 25,
+        paddingTop: 20,
+    },
+    listContentContainer: {
+        flexGrow: 1,
+        paddingBottom: 20,
+    },
+    headerContainer: {
+        marginBottom: 20,
+    },
+    title: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#2D3748',
+        marginBottom: 35,
+        textAlign: 'center',
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#4A5568',
+        marginBottom: 8,
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        marginBottom: 20,
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    input: {
+        flex: 1,
+        paddingVertical: Platform.OS === 'ios' ? 14 : 10,
+        fontSize: 16,
+        color: '#2D3748',
+    },
+    icon: {
+        marginRight: 10,
+    },
+    suggestionsContainer: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginTop: -15,
+        marginBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+        elevation: 5,
+        maxHeight: 200,
+        zIndex: 1,
+    },
+    suggestionItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F7FAFC',
+    },
+    suggestionText: {
+        fontSize: 16,
+        color: '#4A5568',
+    },
+    resultTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#2D3748',
+        marginBottom: 20,
+        marginTop: 20,
+    },
+    corridaItem: {
+        backgroundColor: '#fff',
+        padding: 20,
+        borderRadius: 15,
+        marginBottom: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    corridaTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#2D3748',
+        marginBottom: 10,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    detailText: {
+        fontSize: 15,
+        color: '#4A5568',
+        marginBottom: 5,
+    },
+    statusText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#007bff',
+        marginTop: 5,
+    },
+    lotadaText: {
+        color: '#E53E3E',
+        fontWeight: 'bold',
+    },
+    acceptButton: {
+        backgroundColor: '#38A169',
+        paddingVertical: 12,
+        borderRadius: 10,
+        marginTop: 15,
+        alignItems: 'center',
+        shadowColor: '#38A169',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    acceptButtonText: {
+        color: '#fff',
+        fontSize: 17,
+        fontWeight: '700',
+    },
+    disabledButton: {
+        backgroundColor: '#CBD5E0',
+        shadowColor: 'transparent',
+        elevation: 0,
+    },
+    noResultText: {
+        fontSize: 16,
+        fontStyle: 'italic',
+        color: '#A0AEC0',
+        textAlign: 'center',
+        marginTop: 30,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 50,
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#555',
+    },
+    passengersContainer: {
+        marginTop: 15,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#E2E8F0',
+    },
+    passengersTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
+        color: '#4A5568',
+    },
+    passengerItem: {
+        fontSize: 14,
+        color: '#6B7280',
+        marginBottom: 4,
+        marginLeft: 5,
+    },
+    noPassengersText: {
+        fontSize: 14,
+        fontStyle: 'italic',
+        color: '#A0AEC0',
+        marginTop: 8,
+    },
+    filterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    inputContainerRow: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    separator: {
+        marginHorizontal: 10,
+        fontSize: 16,
+        color: '#4A5568',
+    },
 });
